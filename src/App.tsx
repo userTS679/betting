@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Filter, Search, TrendingUp, Users, Clock, Settings, Wallet } from 'lucide-react';
+import { Plus, Filter, Search, TrendingUp, Users, Clock, Settings, Wallet, Shield } from 'lucide-react';
 import { Event, User, Bet, Transaction, PaymentMethod } from './types';
 import { mockPaymentMethods } from './data/mockData';
 import { EventCard } from './components/EventCard';
@@ -7,6 +7,7 @@ import { BettingModal } from './components/BettingModal';
 import { CreateEventModal } from './components/CreateEventModal';
 import { UserProfile } from './components/UserProfile';
 import { PaymentManagement } from './components/PaymentManagement';
+import { AdminDashboard } from './components/admin/AdminDashboard';
 import { AuthPage } from './components/auth/AuthPage';
 import { getCurrentUser, onAuthStateChange, signOut, getUserProfile, createUserProfile } from './services/auth';
 import { fetchEvents, createEvent } from './services/events';
@@ -26,7 +27,7 @@ function App() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [sortBy, setSortBy] = useState<'newest' | 'popular' | 'ending'>('newest');
-  const [currentView, setCurrentView] = useState<'events' | 'payments'>('events');
+  const [currentView, setCurrentView] = useState<'events' | 'payments' | 'admin'>('events');
 
   const categories = ['All', 'Weather', 'Cryptocurrency', 'Sports', 'Technology', 'Finance', 'Politics', 'Entertainment'];
 
@@ -475,6 +476,19 @@ function App() {
                   <Wallet className="w-4 h-4" />
                   Payments
                 </button>
+                {currentUser.isAdmin && (
+                  <button
+                    onClick={() => setCurrentView('admin')}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
+                      currentView === 'admin'
+                        ? 'bg-purple-100 text-purple-700'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    <Shield className="w-4 h-4" />
+                    Admin
+                  </button>
+                )}
               </div>
 
               <div className="text-right">
@@ -498,7 +512,16 @@ function App() {
         </div>
       </header>
 
-      {currentView === 'payments' ? (
+      {currentView === 'admin' && currentUser.isAdmin ? (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <AdminDashboard
+            events={events}
+            currentUser={currentUser}
+            onCreateEvent={handleCreateEvent}
+            onRefreshEvents={loadEvents}
+          />
+        </div>
+      ) : currentView === 'payments' ? (
         <PaymentManagement
           userId={currentUser.id}
           currentBalance={currentUser.balance}
