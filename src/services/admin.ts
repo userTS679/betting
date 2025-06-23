@@ -216,7 +216,7 @@ export const declareEventResult = async (
     }
 
     // Create house edge transaction
-    await supabase
+    const { error: houseTransactionError } = await supabase
       .from('transactions')
       .insert({
         user_id: event.created_by,
@@ -227,122 +227,155 @@ export const declareEventResult = async (
         event_id: eventId
       });
 
+    if (houseTransactionError) {
+      console.error('Error creating house transaction:', houseTransactionError);
+      // Don't throw error, just log it as this is not critical for payouts
+    }
+
     // Process winning and losing bets
     const winningBets = bets?.filter(bet => bet.option_id === winningOptionId) || [];
     const losingBets = bets?.filter(bet => bet.option_id !== winningOptionId) || [];
 
     console.log(`Processing ${winningBets.length} winning bets and ${losingBets.length} losing bets`);
 
-    // Process winning bets
+    // Process winning bets with improved error handling
     for (const bet of winningBets) {
-      let payout: number;
-      
-      if (winningPool === 0) {
-        // No winning bets - shouldn't happen but handle gracefully
-        payout = bet.amount;
-      } else if (losingPool === 0) {
-        // Only winning bets exist - return original amount
-        payout = bet.amount;
-      } else {
-        // Calculate proportional payout
-        const userShare = bet.amount / winningPool;
-        const userWinnings = bet.amount + (userShare * losingPool * (1 - houseEdge));
-        payout = Math.max(bet.amount, userWinnings); // Ensure at least bet amount is returned
+      try {
+        let payout: number;
+        
+        if (winningPool === 0) {
+          // No winning bets - shouldn't happen but handle gracefully
+          payout = bet.amount;
+        } else if (losingPool === 0) {
+          // Only winning bets exist - return original amount
+          payout = bet.amount;
+        } else {
+          // Calculate proportional payout
+          const userShare = bet.amount / winningPool;
+          const userWinnings = bet.amount + (userShare * losingPool * (1 - houseEdge));
+          payout = Math.max(bet.amount, userWinnings); // Ensure at least bet amount is returned
+        }
+
+        console.log(`Processing winning bet ${bet.id}: amount=${bet.amount}, payout=${payout}`);
+
+        // Update bet status and payout
+        const { error: betUpdateError } = await supabase
+          .from('bets')
+          .update({
+            status: 'won',
+            payout: payout,
+            resolved_at: new Date().toISOString()
+          })
+          .eq('id', bet.id);
+
+        if (betUpdateError) {
+          console.error('Error updating winning bet:', betUpdateError);
+          continue; // Skip this bet but continue with others
+        }
+
+        // Get current user balance and winnings
+        const { data: user, error: userFetchError } = await supabase
+          .from('users')
+          .select('balance, total_winnings')
+          .eq('id', bet.user_id)
+          .maybeSingle();
+
+        if (userFetchError) {
+          console.error('Error fetching user:', userFetchError);
+          console.warn(`Skipping payout for user ${bet.user_id} due to fetch error`);
+          continue; // Skip this user but continue with others
+        }
+
+        if (!user) {
+          console.warn(`User not found: ${bet.user_id}, skipping payout for bet ${bet.id}`);
+          continue; // Skip this user but continue with others
+        }
+
+        // Update user balance and winnings
+        const newBalance = (user.balance || 0) + payout;
+        const newTotalWinnings = (user.total_winnings || 0) + (payout - bet.amount);
+
+        console.log(`Updating user ${bet.user_id}: balance ${user.balance} -> ${newBalance}, winnings ${user.total_winnings} -> ${newTotalWinnings}`);
+
+        const { error: userUpdateError } = await supabase
+          .from('users')
+          .update({
+            balance: newBalance,
+            total_winnings: newTotalWinnings
+          })
+          .eq('id', bet.user_id);
+
+        if (userUpdateError) {
+          console.error('Error updating user balance:', userUpdateError);
+          console.warn(`Failed to update balance for user ${bet.user_id}`);
+          continue; // Skip this user but continue with others
+        }
+
+        // Create winning transaction
+        const { error: transactionError } = await supabase
+          .from('transactions')
+          .insert({
+            user_id: bet.user_id,
+            type: 'bet_won',
+            amount: payout,
+            description: `Bet won - payout received`,
+            status: 'completed',
+            event_id: eventId,
+            bet_id: bet.id
+          });
+
+        if (transactionError) {
+          console.error('Error creating winning transaction:', transactionError);
+          // Don't skip the bet, the balance was already updated
+        }
+
+        console.log(`Successfully processed winning bet: ${bet.id}, payout: ${payout}`);
+      } catch (error) {
+        console.error(`Error processing winning bet ${bet.id}:`, error);
+        continue; // Continue with other bets
       }
-
-      // Update bet status and payout
-      const { error: betUpdateError } = await supabase
-        .from('bets')
-        .update({
-          status: 'won',
-          payout: payout,
-          resolved_at: new Date().toISOString()
-        })
-        .eq('id', bet.id);
-
-      if (betUpdateError) {
-        console.error('Error updating winning bet:', betUpdateError);
-        throw new Error(`Failed to update winning bet: ${betUpdateError.message}`);
-      }
-
-      // Update user balance and winnings
-      const { data: user, error: userFetchError } = await supabase
-        .from('users')
-        .select('balance, total_winnings')
-        .eq('id', bet.user_id)
-        .maybeSingle();
-
-      if (userFetchError) {
-        console.error('Error fetching user:', userFetchError);
-        console.warn(`Skipping payout for user ${bet.user_id} due to fetch error`);
-        continue; // Skip this user but continue with others
-      }
-
-      if (!user) {
-        console.warn(`User not found: ${bet.user_id}, skipping payout for bet ${bet.id}`);
-        continue; // Skip this user but continue with others
-      }
-
-      const { error: userUpdateError } = await supabase
-        .from('users')
-        .update({
-          balance: (user.balance || 0) + payout,
-          total_winnings: (user.total_winnings || 0) + (payout - bet.amount)
-        })
-        .eq('id', bet.user_id);
-
-      if (userUpdateError) {
-        console.error('Error updating user balance:', userUpdateError);
-        console.warn(`Failed to update balance for user ${bet.user_id}`);
-        continue; // Skip this user but continue with others
-      }
-
-      // Create winning transaction
-      await supabase
-        .from('transactions')
-        .insert({
-          user_id: bet.user_id,
-          type: 'bet_won',
-          amount: payout,
-          description: `Bet won - payout received`,
-          status: 'completed',
-          event_id: eventId,
-          bet_id: bet.id
-        });
-
-      console.log(`Processed winning bet: ${bet.id}, payout: ${payout}`);
     }
 
     // Process losing bets
     for (const bet of losingBets) {
-      // Update bet status
-      const { error: betUpdateError } = await supabase
-        .from('bets')
-        .update({
-          status: 'lost',
-          resolved_at: new Date().toISOString()
-        })
-        .eq('id', bet.id);
+      try {
+        // Update bet status
+        const { error: betUpdateError } = await supabase
+          .from('bets')
+          .update({
+            status: 'lost',
+            resolved_at: new Date().toISOString()
+          })
+          .eq('id', bet.id);
 
-      if (betUpdateError) {
-        console.error('Error updating losing bet:', betUpdateError);
-        continue; // Skip this bet but continue with others
+        if (betUpdateError) {
+          console.error('Error updating losing bet:', betUpdateError);
+          continue; // Skip this bet but continue with others
+        }
+
+        // Create losing transaction
+        const { error: transactionError } = await supabase
+          .from('transactions')
+          .insert({
+            user_id: bet.user_id,
+            type: 'bet_lost',
+            amount: -bet.amount,
+            description: `Bet lost`,
+            status: 'completed',
+            event_id: eventId,
+            bet_id: bet.id
+          });
+
+        if (transactionError) {
+          console.error('Error creating losing transaction:', transactionError);
+          // Don't throw error, just log it
+        }
+
+        console.log(`Processed losing bet: ${bet.id}`);
+      } catch (error) {
+        console.error(`Error processing losing bet ${bet.id}:`, error);
+        continue; // Continue with other bets
       }
-
-      // Create losing transaction
-      await supabase
-        .from('transactions')
-        .insert({
-          user_id: bet.user_id,
-          type: 'bet_lost',
-          amount: -bet.amount,
-          description: `Bet lost`,
-          status: 'completed',
-          event_id: eventId,
-          bet_id: bet.id
-        });
-
-      console.log(`Processed losing bet: ${bet.id}`);
     }
 
     // Update event status and winning option
