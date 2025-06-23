@@ -131,11 +131,15 @@ export const declareEventResult = async (
       .from('events')
       .select('total_pool, created_by')
       .eq('id', eventId)
-      .single();
+      .maybeSingle();
 
     if (eventError) {
       console.error('Error fetching event:', eventError);
       throw new Error(`Failed to fetch event: ${eventError.message}`);
+    }
+
+    if (!event) {
+      throw new Error(`Event not found: ${eventId}`);
     }
 
     // Get all bets for this event
@@ -155,19 +159,23 @@ export const declareEventResult = async (
       .from('bet_options')
       .select('total_bets')
       .eq('id', winningOptionId)
-      .single();
+      .maybeSingle();
 
     if (winningOptionError) {
       console.error('Error fetching winning option:', winningOptionError);
       throw new Error(`Failed to fetch winning option: ${winningOptionError.message}`);
     }
 
+    if (!winningOption) {
+      throw new Error(`Winning option not found: ${winningOptionId}`);
+    }
+
     // Calculate house edge and distribution
-    const totalPool = event.total_pool;
+    const totalPool = event.total_pool || 0;
     const houseEdge = 0.15; // 15%
     const houseAmount = totalPool * houseEdge;
     const distributionPool = totalPool - houseAmount;
-    const winningPool = winningOption.total_bets;
+    const winningPool = winningOption.total_bets || 0;
     const losingPool = totalPool - winningPool;
 
     console.log('Payout calculation:', {
@@ -183,18 +191,22 @@ export const declareEventResult = async (
       .from('users')
       .select('balance')
       .eq('id', event.created_by)
-      .single();
+      .maybeSingle();
 
     if (adminError) {
       console.error('Error fetching admin user:', adminError);
       throw new Error(`Failed to fetch admin user: ${adminError.message}`);
     }
 
+    if (!adminUser) {
+      throw new Error(`Admin user not found: ${event.created_by}`);
+    }
+
     // Update admin balance
     const { error: adminUpdateError } = await supabase
       .from('users')
       .update({
-        balance: adminUser.balance + houseAmount
+        balance: (adminUser.balance || 0) + houseAmount
       })
       .eq('id', event.created_by);
 
@@ -216,8 +228,8 @@ export const declareEventResult = async (
       });
 
     // Process winning and losing bets
-    const winningBets = bets.filter(bet => bet.option_id === winningOptionId);
-    const losingBets = bets.filter(bet => bet.option_id !== winningOptionId);
+    const winningBets = bets?.filter(bet => bet.option_id === winningOptionId) || [];
+    const losingBets = bets?.filter(bet => bet.option_id !== winningOptionId) || [];
 
     console.log(`Processing ${winningBets.length} winning bets and ${losingBets.length} losing bets`);
 
@@ -258,23 +270,30 @@ export const declareEventResult = async (
         .from('users')
         .select('balance, total_winnings')
         .eq('id', bet.user_id)
-        .single();
+        .maybeSingle();
 
       if (userFetchError) {
         console.error('Error fetching user:', userFetchError);
+        console.warn(`Skipping payout for user ${bet.user_id} due to fetch error`);
+        continue; // Skip this user but continue with others
+      }
+
+      if (!user) {
+        console.warn(`User not found: ${bet.user_id}, skipping payout for bet ${bet.id}`);
         continue; // Skip this user but continue with others
       }
 
       const { error: userUpdateError } = await supabase
         .from('users')
         .update({
-          balance: user.balance + payout,
-          total_winnings: user.total_winnings + (payout - bet.amount)
+          balance: (user.balance || 0) + payout,
+          total_winnings: (user.total_winnings || 0) + (payout - bet.amount)
         })
         .eq('id', bet.user_id);
 
       if (userUpdateError) {
         console.error('Error updating user balance:', userUpdateError);
+        console.warn(`Failed to update balance for user ${bet.user_id}`);
         continue; // Skip this user but continue with others
       }
 
@@ -377,11 +396,11 @@ export const getAdminStats = async (adminId: string) => {
       throw new Error(`Failed to fetch house transactions: ${houseError.message}`);
     }
 
-    const totalEvents = events.length;
-    const activeEvents = events.filter(e => e.status === 'active').length;
-    const resolvedEvents = events.filter(e => e.status === 'resolved').length;
-    const totalPoolManaged = events.reduce((sum, e) => sum + (e.total_pool || 0), 0);
-    const totalHouseEarnings = houseTransactions.reduce((sum, t) => sum + t.amount, 0);
+    const totalEvents = events?.length || 0;
+    const activeEvents = events?.filter(e => e.status === 'active').length || 0;
+    const resolvedEvents = events?.filter(e => e.status === 'resolved').length || 0;
+    const totalPoolManaged = events?.reduce((sum, e) => sum + (e.total_pool || 0), 0) || 0;
+    const totalHouseEarnings = houseTransactions?.reduce((sum, t) => sum + t.amount, 0) || 0;
 
     return {
       totalEvents,
