@@ -95,7 +95,7 @@ export const EventCard: React.FC<EventCardProps> = ({ event, isAdmin = false, on
                 <div className="font-bold text-lg text-blue-600">
                   {option.odds.toFixed(2)}x
                 </div>
-                <div className="text-xs text-gray-400">live return</div>
+                <div className="text-xs text-gray-400">live returns</div>
               </div>
             </div>
           ))}
