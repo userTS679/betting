@@ -1,7 +1,6 @@
 import React from 'react';
 import { Clock, Users } from 'lucide-react';
 import { Event } from '../types';
-import { calculateBetReturns } from '../services/betting';
 
 interface EventCardProps {
   event: Event;
@@ -35,16 +34,6 @@ export const EventCard: React.FC<EventCardProps> = ({ event, isAdmin = false, on
     }).format(amount);
   };
 
-  const calculateDynamicOdds = (optionId: string) => {
-    try {
-      const calculation = calculateBetReturns(event, optionId, 100, isAdmin);
-      return calculation.effectiveOdds;
-    } catch (error) {
-      const option = event.options.find(opt => opt.id === optionId);
-      return option?.odds || 1.0;
-    }
-  };
-
   return (
     <div className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-100 max-w-sm">
       <div className="p-5">
@@ -70,7 +59,7 @@ export const EventCard: React.FC<EventCardProps> = ({ event, isAdmin = false, on
             <div className="text-4xl font-extrabold tracking-tight text-center">
               {formatCurrency(event.totalPool)}
             </div>
-            <div className="text-sm opacity-80 mt-1">Pool Prize</div>
+            <div className="text-sm opacity-80 mt-1">Total Pool</div>
             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -skew-x-12 animate-pulse opacity-30"></div>
             <div className="absolute top-2 right-8 w-1 h-1 bg-white rounded-full animate-ping"></div>
             <div className="absolute bottom-3 left-12 w-1 h-1 bg-white rounded-full animate-ping" style={{ animationDelay: '0.5s' }}></div>
@@ -92,36 +81,24 @@ export const EventCard: React.FC<EventCardProps> = ({ event, isAdmin = false, on
         </div>
 
         <div className="space-y-2 mb-4">
-          {event.options.slice(0, 2).map((option) => {
-            const dynamicOdds = calculateDynamicOdds(option.id);
-            const isOddsChanged = Math.abs(dynamicOdds - option.odds) > 0.1;
-
-            return (
-              <div key={option.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                <div className="flex-1 min-w-0">
-                  <span className="font-medium text-gray-900 text-sm truncate block">
-                    {option.label}
-                  </span>
-                  <div className="text-xs text-gray-500">
-                    {option.bettors} bets • {formatCurrency(option.totalBets)}
-                  </div>
-                </div>
-                <div className="text-right ml-2">
-                  <div className={`font-bold text-lg ${
-                    isOddsChanged ? 'text-blue-600' : 'text-green-600'
-                  }`}>
-                    {dynamicOdds.toFixed(2)}x
-                  </div>
-                  {/* {isOddsChanged && (
-                    <div className="text-xs text-blue-500">
-                      was {option.odds.toFixed(1)}x
-                    </div>
-                  )} */}
-                  {/* <div className="text-xs text-gray-400">live odds</div> */}
+          {event.options.slice(0, 2).map((option) => (
+            <div key={option.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+              <div className="flex-1 min-w-0">
+                <span className="font-medium text-gray-900 text-sm truncate block">
+                  {option.label}
+                </span>
+                <div className="text-xs text-gray-500">
+                  {option.bettors} bets • {formatCurrency(option.totalBets)}
                 </div>
               </div>
-            );
-          })}
+              <div className="text-right ml-2">
+                <div className="font-bold text-lg text-blue-600">
+                  {option.odds.toFixed(2)}x
+                </div>
+                <div className="text-xs text-gray-400">live odds</div>
+              </div>
+            </div>
+          ))}
 
           {event.options.length > 2 && (
             <div className="text-center text-xs text-gray-500 py-1">

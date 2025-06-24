@@ -15,7 +15,23 @@ export interface BetCalculation {
 }
 
 /**
- * Calculate potential returns for a bet with 15% house edge
+ * Calculate dynamic odds based on pool distribution
+ * Formula: odds = (total_pool - option_pool) / option_pool + 1
+ * This ensures that less popular options have higher odds
+ */
+const calculateDynamicOdds = (totalPool: number, optionPool: number): number => {
+  if (optionPool === 0) return 2.0; // Default odds for new options
+  if (totalPool === optionPool) return 1.0; // Only this option has bets
+  
+  const otherOptionsPool = totalPool - optionPool;
+  const odds = (otherOptionsPool / optionPool) + 1;
+  
+  // Ensure minimum odds of 1.1 and maximum of 50
+  return Math.max(1.1, Math.min(50, odds));
+};
+
+/**
+ * Calculate potential returns for a bet with your specified rules
  */
 export const calculateBetReturns = (
   event: Event,
@@ -30,7 +46,6 @@ export const calculateBetReturns = (
 
   const houseEdge = 0.15; // 15% house edge
   const currentTotalPool = event.totalPool;
-  const currentOptionPool = option.totalBets;
   
   // Calculate maximum bet amount (20% of total pool, unlimited for admin)
   const maxBetAmount = isAdmin ? Infinity : Math.max(100, currentTotalPool * 0.20);
@@ -41,61 +56,37 @@ export const calculateBetReturns = (
 
   // New pool sizes after this bet
   const newTotalPool = currentTotalPool + betAmount;
-  const newOptionPool = currentOptionPool + betAmount;
+  const newOptionPool = option.totalBets + betAmount;
   
-  // Calculate potential returns
-  let potentialReturn: number;
-  let effectiveOdds: number;
-
-  if (newTotalPool === betAmount) {
-    // First bet on the entire event - user gets their money back
-    effectiveOdds = 1.0;
-    potentialReturn = betAmount;
-  } else {
-    // Calculate based on pool distribution after house edge
-    const netPool = newTotalPool * (1 - houseEdge); // Pool after house takes 15%
-    const otherOptionsPool = newTotalPool - newOptionPool;
-    
-    if (otherOptionsPool === 0) {
-      // Only this option has bets - user gets their money back
-      effectiveOdds = 1.0;
-      potentialReturn = betAmount;
-    } else {
-      // User's share of the winning pool
-      const userShareOfOption = betAmount / newOptionPool;
-      
-      // If this option wins, user gets:
-      // 1. Their original bet back
-      // 2. Their proportional share of the losing options' pool (after house edge)
-      const userWinnings = betAmount + (userShareOfOption * otherOptionsPool * (1 - houseEdge));
-      
-      potentialReturn = userWinnings;
-      effectiveOdds = potentialReturn / betAmount;
-    }
-  }
-
+  // Calculate dynamic odds for this option after the bet
+  const effectiveOdds = calculateDynamicOdds(newTotalPool, newOptionPool);
+  
+  // Calculate potential return using your formula:
+  // User gets: bet_amount * odds (from the pool after house cut)
+  const potentialReturn = betAmount * effectiveOdds;
+  
   // Ensure minimum return (user gets at least their bet back)
-  potentialReturn = Math.max(potentialReturn, betAmount);
-  effectiveOdds = Math.max(effectiveOdds, 1.0);
+  const finalReturn = Math.max(potentialReturn, betAmount);
+  const finalOdds = finalReturn / betAmount;
 
   // Calculate other metrics
-  const potentialProfit = potentialReturn - betAmount;
-  const impliedProbability = 1 / effectiveOdds;
+  const potentialProfit = finalReturn - betAmount;
+  const impliedProbability = 1 / finalOdds;
   const poolShare = newOptionPool / newTotalPool;
 
   return {
-    potentialReturn: Math.round(potentialReturn * 100) / 100,
+    potentialReturn: Math.round(finalReturn * 100) / 100,
     potentialProfit: Math.round(potentialProfit * 100) / 100,
     impliedProbability: Math.round(impliedProbability * 10000) / 100, // Percentage
     poolShare: Math.round(poolShare * 10000) / 100, // Percentage
-    effectiveOdds: Math.round(effectiveOdds * 100) / 100,
+    effectiveOdds: Math.round(finalOdds * 100) / 100,
     maxBetAmount: isAdmin ? Infinity : Math.round(maxBetAmount),
     houseEdge: houseEdge * 100 // Percentage
   };
 };
 
 /**
- * Place a bet with proper database updates and house edge calculation
+ * Place a bet with proper database updates and dynamic odds calculation
  */
 export const placeBet = async (
   userId: string,
@@ -111,7 +102,7 @@ export const placeBet = async (
     .single();
 
   if (userError) throw new Error('Failed to fetch user data');
-  if (user.balance < amount) throw new Error('Insufficient balance');
+  if (user.balance < amount && !user.is_admin) throw new Error('Insufficient balance');
 
   // Get event data to check bet limits
   const { data: eventData, error: eventError } = await supabase
@@ -176,7 +167,45 @@ export const placeBet = async (
   // Update event and option statistics
   await updateEventStatistics(eventId, optionId, amount);
 
+  // Update dynamic odds for all options in this event
+  await updateDynamicOdds(eventId);
+
   return { bet, transaction };
+};
+
+/**
+ * Update dynamic odds for all options in an event
+ */
+const updateDynamicOdds = async (eventId: string) => {
+  try {
+    // Get current event and options data
+    const { data: eventData, error: eventError } = await supabase
+      .from('events')
+      .select('total_pool')
+      .eq('id', eventId)
+      .single();
+
+    if (eventError) return;
+
+    const { data: options, error: optionsError } = await supabase
+      .from('bet_options')
+      .select('id, total_bets')
+      .eq('event_id', eventId);
+
+    if (optionsError || !options) return;
+
+    // Update odds for each option
+    for (const option of options) {
+      const newOdds = calculateDynamicOdds(eventData.total_pool, option.total_bets);
+      
+      await supabase
+        .from('bet_options')
+        .update({ odds: newOdds })
+        .eq('id', option.id);
+    }
+  } catch (error) {
+    console.error('Error updating dynamic odds:', error);
+  }
 };
 
 /**
@@ -229,26 +258,20 @@ const updateEventStatistics = async (
 };
 
 /**
- * Resolve a bet when event concludes with 15% house edge
+ * Resolve a bet when event concludes with your specified payout formula
  */
 export const resolveBet = async (
   betId: string,
   isWinner: boolean,
-  totalEventPool: number,
-  winningOptionPool: number,
+  winningOptionOdds: number,
   userBetAmount: number
 ): Promise<void> => {
   const status = isWinner ? 'won' : 'lost';
   let payout = 0;
 
   if (isWinner) {
-    const houseEdge = 0.15;
-    const netPool = totalEventPool * (1 - houseEdge);
-    const losingPool = totalEventPool - winningOptionPool;
-    const userShare = userBetAmount / winningOptionPool;
-    
-    // User gets their bet back + proportional share of losing pool (after house edge)
-    payout = userBetAmount + (userShare * losingPool * (1 - houseEdge));
+    // Your formula: payout = bet_amount * odds_at_resolution
+    payout = userBetAmount * winningOptionOdds;
     payout = Math.max(payout, userBetAmount); // Ensure at least bet amount is returned
   }
   
