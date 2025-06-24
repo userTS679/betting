@@ -33,25 +33,27 @@ export const DeclareResultModal: React.FC<DeclareResultModalProps> = ({
     const totalPool = event.totalPool;
     const houseEdge = 0.15; // 15%
     const houseAmount = totalPool * houseEdge;
-    const distributionPool = totalPool - houseAmount;
+    const availableForDistribution = totalPool - houseAmount; // 85% of pool
     const winningPool = winningOption.totalBets;
     const losingPool = totalPool - winningPool;
 
-    // Calculate individual payouts for winning bets
+    // Calculate average payout per winning bettor
     const winningBettors = winningOption.bettors;
     const averageWinningBet = winningPool > 0 ? winningPool / winningBettors : 0;
+    
+    // Each winner gets proportional share of the 85% distribution pool
     const averagePayout = winningPool > 0 ? 
-      averageWinningBet + ((averageWinningBet / winningPool) * losingPool * (1 - houseEdge)) : 0;
+      (averageWinningBet / winningPool) * availableForDistribution : 0;
 
     return {
       totalPool,
       houseAmount,
-      distributionPool,
+      availableForDistribution,
       winningPool,
       losingPool,
       winningBettors,
       averagePayout,
-      effectiveOdds: averageWinningBet > 0 ? averagePayout / averageWinningBet : 0
+      effectiveMultiplier: averageWinningBet > 0 ? averagePayout / averageWinningBet : 0
     };
   };
 
@@ -143,7 +145,7 @@ export const DeclareResultModal: React.FC<DeclareResultModalProps> = ({
                       <div className="font-bold text-lg text-blue-600">
                         {option.odds.toFixed(2)}x
                       </div>
-                      <div className="text-sm text-gray-500">original odds</div>
+                      <div className="text-sm text-gray-500">current odds</div>
                     </div>
                   </div>
                 </button>
@@ -156,7 +158,7 @@ export const DeclareResultModal: React.FC<DeclareResultModalProps> = ({
             <div className="bg-blue-50 rounded-lg p-4 mb-6">
               <h4 className="font-semibold text-blue-900 mb-3 flex items-center gap-2">
                 <Calculator className="w-5 h-5" />
-                Payout Calculation Preview
+                Corrected Payout Calculation Preview
               </h4>
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div className="space-y-2">
@@ -165,15 +167,15 @@ export const DeclareResultModal: React.FC<DeclareResultModalProps> = ({
                     <span className="font-semibold">{formatCurrency(payoutData.totalPool)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-blue-700">House Amount (15%):</span>
+                    <span className="text-blue-700">House Cut (15%):</span>
                     <span className="font-semibold text-orange-600">
                       -{formatCurrency(payoutData.houseAmount)}
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-blue-700">Distribution Pool:</span>
+                    <span className="text-blue-700">Available for Winners:</span>
                     <span className="font-semibold text-green-600">
-                      {formatCurrency(payoutData.distributionPool)}
+                      {formatCurrency(payoutData.availableForDistribution)}
                     </span>
                   </div>
                 </div>
@@ -189,12 +191,15 @@ export const DeclareResultModal: React.FC<DeclareResultModalProps> = ({
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-blue-700">Effective Odds:</span>
+                    <span className="text-blue-700">Effective Multiplier:</span>
                     <span className="font-semibold text-purple-600">
-                      {payoutData.effectiveOdds.toFixed(2)}x
+                      {payoutData.effectiveMultiplier.toFixed(2)}x
                     </span>
                   </div>
                 </div>
+              </div>
+              <div className="mt-3 p-2 bg-blue-100 rounded text-xs text-blue-800">
+                <strong>Formula:</strong> Each winner gets proportional share of 85% pool based on their bet amount
               </div>
             </div>
           )}
@@ -207,10 +212,11 @@ export const DeclareResultModal: React.FC<DeclareResultModalProps> = ({
                 <p className="font-medium mb-1">Important:</p>
                 <ul className="list-disc list-inside space-y-1">
                   <li>This action cannot be undone once confirmed</li>
-                  <li>15% of the total pool will be transferred to admin account</li>
-                  <li>Remaining amount will be distributed to winning bettors</li>
+                  <li>15% of total pool will be transferred to admin account</li>
+                  <li>Remaining 85% will be distributed proportionally to winning bettors</li>
                   <li>All losing bets will be marked as lost</li>
                   <li>Event status will be changed to "resolved"</li>
+                  <li><strong>Total distribution will never exceed the available pool</strong></li>
                 </ul>
               </div>
             </div>

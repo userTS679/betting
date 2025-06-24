@@ -117,9 +117,10 @@ export const deleteEvent = async (eventId: string): Promise<void> => {
 };
 
 /**
- * Declare result and distribute payouts according to your specified rules:
- * 1. Remove 15% house cut from total pool
- * 2. Pay winners: bet_amount * odds_at_resolution
+ * Declare result and distribute payouts with corrected mathematics:
+ * 1. Remove 15% house cut from total pool first
+ * 2. Distribute remaining 85% proportionally to winners based on their bet amounts
+ * 3. Ensure total distribution never exceeds available pool
  */
 export const declareEventResult = async (
   eventId: string,
@@ -156,7 +157,7 @@ export const declareEventResult = async (
       throw new Error(`Failed to fetch bets: ${betsError.message}`);
     }
 
-    // Get winning option details (including current odds)
+    // Get winning option details
     const { data: winningOption, error: winningOptionError } = await supabase
       .from('bet_options')
       .select('total_bets, odds')
@@ -172,18 +173,30 @@ export const declareEventResult = async (
       throw new Error(`Winning option not found: ${winningOptionId}`);
     }
 
-    // Calculate house edge and payouts according to your rules
+    // Calculate distribution with corrected mathematics
     const totalPool = event.total_pool || 0;
     const houseEdge = 0.15; // 15%
     const houseAmount = totalPool * houseEdge;
-    const winningOptionOdds = winningOption.odds;
+    const availableForDistribution = totalPool - houseAmount; // 85% of total pool
+    
+    // Get winning and losing bets
+    const winningBets = bets?.filter(bet => bet.option_id === winningOptionId) || [];
+    const losingBets = bets?.filter(bet => bet.option_id !== winningOptionId) || [];
+    const totalWinningBetAmount = winningBets.reduce((sum, bet) => sum + bet.amount, 0);
 
-    console.log('Payout calculation:', {
+    console.log('Corrected payout calculation:', {
       totalPool,
-      houseAmount,
-      winningOptionOdds,
-      houseCutPercentage: '15%'
+      houseAmount: `₹${houseAmount} (15%)`,
+      availableForDistribution: `₹${availableForDistribution} (85%)`,
+      totalWinningBetAmount: `₹${totalWinningBetAmount}`,
+      winningBetsCount: winningBets.length,
+      losingBetsCount: losingBets.length
     });
+
+    // Ensure we have enough to distribute
+    if (availableForDistribution < totalWinningBetAmount) {
+      console.warn('Available distribution amount is less than winning bet amounts. Using proportional distribution.');
+    }
 
     // Transfer house amount to admin
     const { data: adminUser, error: adminError } = await supabase
@@ -231,19 +244,26 @@ export const declareEventResult = async (
       // Don't throw error, just log it as this is not critical for payouts
     }
 
-    // Process winning and losing bets
-    const winningBets = bets?.filter(bet => bet.option_id === winningOptionId) || [];
-    const losingBets = bets?.filter(bet => bet.option_id !== winningOptionId) || [];
-
     console.log(`Processing ${winningBets.length} winning bets and ${losingBets.length} losing bets`);
 
-    // Process winning bets according to your formula: bet_amount * odds
+    // Process winning bets with corrected payout calculation
     for (const bet of winningBets) {
       try {
-        // Your payout formula: bet_amount * odds_at_resolution
-        const payout = bet.amount * winningOptionOdds;
+        let payout: number;
         
-        console.log(`Processing winning bet ${bet.id}: amount=${bet.amount}, odds=${winningOptionOdds}, payout=${payout}`);
+        if (totalWinningBetAmount === 0) {
+          // No winning bets - shouldn't happen but handle gracefully
+          payout = bet.amount;
+        } else {
+          // Calculate proportional share of the available distribution pool
+          const userShare = bet.amount / totalWinningBetAmount;
+          payout = userShare * availableForDistribution;
+          
+          // Ensure minimum payout is at least the original bet amount
+          payout = Math.max(payout, bet.amount);
+        }
+
+        console.log(`Processing winning bet ${bet.id}: amount=₹${bet.amount}, share=${((bet.amount / totalWinningBetAmount) * 100).toFixed(2)}%, payout=₹${payout.toFixed(2)}`);
 
         // Update bet status and payout
         const { error: betUpdateError } = await supabase
@@ -305,7 +325,7 @@ export const declareEventResult = async (
             user_id: bet.user_id,
             type: 'bet_won',
             amount: payout,
-            description: `Bet won - payout: ₹${bet.amount} × ${winningOptionOdds} odds = ₹${payout}`,
+            description: `Bet won - proportional payout: ₹${payout.toFixed(2)} from ₹${availableForDistribution} pool`,
             status: 'completed',
             event_id: eventId,
             bet_id: bet.id
@@ -316,7 +336,7 @@ export const declareEventResult = async (
           // Don't skip the bet, the balance was already updated
         }
 
-        console.log(`Successfully processed winning bet: ${bet.id}, payout: ${payout}`);
+        console.log(`Successfully processed winning bet: ${bet.id}, payout: ₹${payout.toFixed(2)}`);
       } catch (error) {
         console.error(`Error processing winning bet ${bet.id}:`, error);
         continue; // Continue with other bets
@@ -381,8 +401,9 @@ export const declareEventResult = async (
     }
 
     console.log('Event result declared and payouts distributed successfully');
-    console.log(`House cut: ₹${houseAmount} (15% of ₹${totalPool})`);
-    console.log(`Winning bets paid at ${winningOptionOdds}x odds`);
+    console.log(`House cut: ₹${houseAmount.toFixed(2)} (15% of ₹${totalPool})`);
+    console.log(`Total distributed to winners: ₹${availableForDistribution.toFixed(2)} (85% of pool)`);
+    console.log(`Distribution formula: Proportional share of 85% pool based on bet amounts`);
   } catch (error) {
     console.error('Exception in declareEventResult:', error);
     throw error;
