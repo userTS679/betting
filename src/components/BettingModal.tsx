@@ -390,7 +390,7 @@ export const BettingModal: React.FC<BettingModalProps> = ({
                         <div className="font-bold text-xl text-green-600 transition-all duration-300">
                           {dynamicCalculation.effectiveOdds.toFixed(2)}x
                         </div>
-                        <div className="text-sm text-gray-500">live odds</div>
+                        <div className="text-sm text-gray-500">live returns</div>
                       </div>
                     </button>
                   );
