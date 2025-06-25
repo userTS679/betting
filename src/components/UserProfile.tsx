@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { User, TrendingUp, TrendingDown, Activity, Wallet, Target, Award, BarChart3 } from 'lucide-react';
 import { User as UserType, Bet } from '../types';
 import { getUserBettingStats } from '../services/betting';
+import { supabase } from '../lib/supabase';
 
 interface UserProfileProps {
   user: UserType & { netPL?: number };
@@ -33,7 +34,11 @@ export const UserProfile: React.FC<UserProfileProps> = ({ user, userBets }) => {
     }).format(amount);
   };
 
+const [eventNames, setEventNames] = useState<{ [eventId: string]: string }>({});
+
+
   useEffect(() => {
+
     const fetchStats = async () => {
       try {
         const userStats = await getUserBettingStats(user.id);
@@ -80,6 +85,29 @@ export const UserProfile: React.FC<UserProfileProps> = ({ user, userBets }) => {
 
     fetchStats();
   }, [user, userBets]);
+
+  useEffect(() => {
+    // Fetch event names for all unique eventIds in userBets
+    const fetchEventNames = async () => {
+      const uniqueEventIds = Array.from(new Set(userBets.map(bet => bet.eventId)));
+      if (uniqueEventIds.length === 0) return;
+
+      const { data, error } = await supabase
+        .from('events')
+        .select('id, title')
+        .in('id', uniqueEventIds);
+
+      if (!error && data) {
+        const namesMap: { [eventId: string]: string } = {};
+        data.forEach((event: { id: string; title: string }) => {
+          namesMap[event.id] = event.title;
+        });
+        setEventNames(namesMap);
+      }
+    };
+
+    fetchEventNames();
+  }, [userBets]);
 
   if (loading) {
     return (
@@ -164,7 +192,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ user, userBets }) => {
           </div>
         </div>
 
-        <div className={`p-4 rounded-lg ${netPL >= 0 ? 'bg-green-50' : 'bg-red-50'}`}>
+        {/* <div className={`p-4 rounded-lg ${netPL >= 0 ? 'bg-green-50' : 'bg-red-50'}`}>
           <div className="flex items-center gap-2 mb-2">
             {netPL >= 0 ? (
               <Award className="w-5 h-5 text-green-600" />
@@ -178,7 +206,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ user, userBets }) => {
           <div className={`text-2xl font-bold ${netPL >= 0 ? 'text-green-900' : 'text-red-900'}`}>
             {netPL >= 0 ? '+' : ''}{formatCurrency(netPL)}
           </div>
-        </div>
+        </div> */}
       </div>
 
       {/* Detailed Stats */}
@@ -218,7 +246,10 @@ export const UserProfile: React.FC<UserProfileProps> = ({ user, userBets }) => {
             {activeBets.slice(0, 3).map((bet) => (
               <div key={bet.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                 <div className="flex-1">
-                  <div className="font-medium text-gray-900">Event #{bet.eventId.slice(-4)}</div>
+
+                  <div className="font-medium text-gray-900">
+  {eventNames[bet.eventId] || `Event #${bet.eventId.slice(-4)}`}
+</div>
                   <div className="text-sm text-gray-600">
                     Placed on {bet.placedAt.toLocaleDateString()}
                   </div>
