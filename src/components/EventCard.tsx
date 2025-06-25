@@ -1,14 +1,20 @@
 import React from 'react';
-import { Clock, Users } from 'lucide-react';
+import { Clock, Users, Trophy, XCircle, CheckCircle } from 'lucide-react';
 import { Event } from '../types';
 
 interface EventCardProps {
   event: Event;
   isAdmin?: boolean;
+  userBet?: {
+    amount: number;
+    optionId: string;
+    status: 'active' | 'won' | 'lost';
+    payout?: number;
+  } | null;
   onBet: (event: Event) => void;
 }
 
-export const EventCard: React.FC<EventCardProps> = ({ event, isAdmin = false, onBet }) => {
+export const EventCard: React.FC<EventCardProps> = ({ event, isAdmin = false, userBet, onBet }) => {
   const timeLeft = Math.max(0, event.expiresAt.getTime() - Date.now());
   const hoursLeft = Math.floor(timeLeft / (1000 * 60 * 60));
   const minutesLeft = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
@@ -34,6 +40,73 @@ export const EventCard: React.FC<EventCardProps> = ({ event, isAdmin = false, on
     }).format(amount);
   };
 
+  const getUserBetOption = () => {
+    if (!userBet) return null;
+    return event.options.find(opt => opt.id === userBet.optionId);
+  };
+
+  const userBetOption = getUserBetOption();
+
+  const getResultDisplay = () => {
+    if (!userBet || event.status !== 'resolved') return null;
+
+    const isWinner = userBet.status === 'won';
+    const winningOption = event.options.find(opt => opt.id === event.winningOption);
+
+    return (
+      <div className={`mt-4 p-4 rounded-lg border-2 ${
+        isWinner 
+          ? 'border-green-500 bg-green-50' 
+          : 'border-red-300 bg-red-50'
+      }`}>
+        <div className="flex items-center gap-2 mb-2">
+          {isWinner ? (
+            <CheckCircle className="w-5 h-5 text-green-600" />
+          ) : (
+            <XCircle className="w-5 h-5 text-red-600" />
+          )}
+          <span className={`font-bold ${
+            isWinner ? 'text-green-800' : 'text-red-800'
+          }`}>
+            {isWinner ? 'You Won!' : 'You Lost'}
+          </span>
+        </div>
+        
+        <div className="space-y-1 text-sm">
+          <div className="flex justify-between">
+            <span className="text-gray-600">Your bet:</span>
+            <span className="font-medium">{userBetOption?.label}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-gray-600">Amount:</span>
+            <span className="font-medium">{formatCurrency(userBet.amount)}</span>
+          </div>
+          {isWinner && userBet.payout && (
+            <div className="flex justify-between">
+              <span className="text-gray-600">Payout:</span>
+              <span className="font-bold text-green-700">{formatCurrency(userBet.payout)}</span>
+            </div>
+          )}
+          <div className="flex justify-between pt-2 border-t border-gray-200">
+            <span className="text-gray-600">Result:</span>
+            <span className="font-medium">{winningOption?.label}</span>
+          </div>
+        </div>
+
+        {isWinner && (
+          <div className="mt-3 text-center">
+            <div className="inline-flex items-center gap-1 px-3 py-1 bg-green-100 rounded-full">
+              <Trophy className="w-4 h-4 text-green-600" />
+              <span className="text-sm font-medium text-green-800">
+                Profit: {formatCurrency((userBet.payout || 0) - userBet.amount)}
+              </span>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-100 max-w-sm">
       <div className="p-5">
@@ -41,13 +114,25 @@ export const EventCard: React.FC<EventCardProps> = ({ event, isAdmin = false, on
           <span className={`px-3 py-1 rounded-full text-xs font-semibold text-white ${getCategoryColor(event.category)}`}>
             {event.category}
           </span>
-          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-            event.status === 'active' ? 'bg-green-100 text-green-800' : 
-            event.status === 'closed' ? 'bg-yellow-100 text-yellow-800' : 
-            'bg-gray-100 text-gray-800'
-          }`}>
-            {event.status.toUpperCase()}
-          </span>
+          <div className="flex items-center gap-2">
+            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+              event.status === 'active' ? 'bg-green-100 text-green-800' : 
+              event.status === 'closed' ? 'bg-yellow-100 text-yellow-800' : 
+              'bg-blue-100 text-blue-800'
+            }`}>
+              {event.status.toUpperCase()}
+            </span>
+            {userBet && (
+              <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                userBet.status === 'active' ? 'bg-blue-100 text-blue-800' :
+                userBet.status === 'won' ? 'bg-green-100 text-green-800' :
+                'bg-red-100 text-red-800'
+              }`}>
+                {userBet.status === 'active' ? 'BETTING' : 
+                 userBet.status === 'won' ? 'WON' : 'LOST'}
+              </span>
+            )}
+          </div>
         </div>
 
         <h3 className="text-xl font-bold text-gray-900 mb-2 line-clamp-2 leading-tight">
@@ -70,7 +155,8 @@ export const EventCard: React.FC<EventCardProps> = ({ event, isAdmin = false, on
           <div className="flex items-center gap-2">
             <Clock className="w-4 h-4" />
             <span className="truncate">
-              {hoursLeft > 0 ? `${hoursLeft}h ${minutesLeft}m` : 
+              {event.status === 'resolved' ? 'Resolved' :
+               hoursLeft > 0 ? `${hoursLeft}h ${minutesLeft}m` : 
                minutesLeft > 0 ? `${minutesLeft}m left` : 'Expired'}
             </span>
           </div>
@@ -81,24 +167,40 @@ export const EventCard: React.FC<EventCardProps> = ({ event, isAdmin = false, on
         </div>
 
         <div className="space-y-2 mb-4">
-          {event.options.slice(0, 2).map((option) => (
-            <div key={option.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-              <div className="flex-1 min-w-0">
-                <span className="font-medium text-gray-900 text-sm truncate block">
-                  {option.label}
-                </span>
-                <div className="text-xs text-gray-500">
-                  {option.bettors} bets • {formatCurrency(option.totalBets)}
+          {event.options.slice(0, 2).map((option) => {
+            const isWinningOption = event.winningOption === option.id;
+            const isUserOption = userBet?.optionId === option.id;
+            
+            return (
+              <div 
+                key={option.id} 
+                className={`flex items-center justify-between p-3 rounded-lg transition-colors ${
+                  isWinningOption ? 'bg-green-100 border-2 border-green-300' :
+                  isUserOption ? 'bg-blue-100 border-2 border-blue-300' :
+                  'bg-gray-50 hover:bg-gray-100'
+                }`}
+              >
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium text-gray-900 text-sm truncate block">
+                      {option.label}
+                    </span>
+                    {isWinningOption && <Trophy className="w-4 h-4 text-green-600" />}
+                    {isUserOption && !isWinningOption && <span className="text-blue-600 text-xs">YOUR BET</span>}
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    {option.bettors} bets • {formatCurrency(option.totalBets)}
+                  </div>
+                </div>
+                <div className="text-right ml-2">
+                  <div className="font-bold text-lg text-blue-600">
+                    {option.odds.toFixed(2)}x
+                  </div>
+                  <div className="text-xs text-gray-400">live returns</div>
                 </div>
               </div>
-              <div className="text-right ml-2">
-                <div className="font-bold text-lg text-blue-600">
-                  {option.odds.toFixed(2)}x
-                </div>
-                <div className="text-xs text-gray-400">live returns</div>
-              </div>
-            </div>
-          ))}
+            );
+          })}
 
           {event.options.length > 2 && (
             <div className="text-center text-xs text-gray-500 py-1">
@@ -107,12 +209,17 @@ export const EventCard: React.FC<EventCardProps> = ({ event, isAdmin = false, on
           )}
         </div>
 
+        {/* Show result for resolved events */}
+        {getResultDisplay()}
+
         <button
           onClick={() => onBet(event)}
           disabled={event.status !== 'active' || timeLeft <= 0}
           className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:from-gray-400 disabled:to-gray-500 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-200 disabled:cursor-not-allowed shadow-lg hover:shadow-xl"
         >
-          {event.status !== 'active' ? 'Event Closed' : timeLeft <= 0 ? 'Expired' : 'Place Bet'}
+          {event.status !== 'active' ? 'Event Closed' : 
+           timeLeft <= 0 ? 'Expired' : 
+           userBet && event.status === 'active' ? 'Update Bet' : 'Place Bet'}
         </button>
       </div>
     </div>

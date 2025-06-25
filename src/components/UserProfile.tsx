@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { User, TrendingUp, TrendingDown, Activity, Wallet, Target, Award, BarChart3 } from 'lucide-react';
+import { User, TrendingUp, TrendingDown, Activity, Wallet, Target, Award, BarChart3, Trophy, Flame, Zap } from 'lucide-react';
 import { User as UserType, Bet } from '../types';
 import { getUserBettingStats } from '../services/betting';
 import { supabase } from '../lib/supabase';
@@ -20,11 +20,15 @@ interface UserStats {
   netProfit: number;
   wonBetsCount: number;
   lostBetsCount: number;
+  currentStreak: number;
+  longestStreak: number;
+  streakType: 'win' | 'loss' | 'none';
 }
 
 export const UserProfile: React.FC<UserProfileProps> = ({ user, userBets }) => {
   const [stats, setStats] = useState<UserStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [eventNames, setEventNames] = useState<{ [eventId: string]: string }>({});
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-IN', {
@@ -34,15 +38,74 @@ export const UserProfile: React.FC<UserProfileProps> = ({ user, userBets }) => {
     }).format(amount);
   };
 
-const [eventNames, setEventNames] = useState<{ [eventId: string]: string }>({});
+  // Calculate betting streaks
+  const calculateStreaks = (bets: Bet[]) => {
+    const resolvedBets = bets
+      .filter(bet => bet.status === 'won' || bet.status === 'lost')
+      .sort((a, b) => b.placedAt.getTime() - a.placedAt.getTime()); // Most recent first
 
+    if (resolvedBets.length === 0) {
+      return { currentStreak: 0, longestStreak: 0, streakType: 'none' as const };
+    }
+
+    let currentStreak = 0;
+    let longestStreak = 0;
+    let currentStreakType: 'win' | 'loss' | 'none' = 'none';
+    let tempStreak = 0;
+    let tempStreakType: 'win' | 'loss' | 'none' = 'none';
+
+    // Calculate current streak
+    for (let i = 0; i < resolvedBets.length; i++) {
+      const bet = resolvedBets[i];
+      if (i === 0) {
+        currentStreak = 1;
+        currentStreakType = bet.status === 'won' ? 'win' : 'loss';
+        tempStreak = 1;
+        tempStreakType = currentStreakType;
+      } else {
+        const expectedStatus = currentStreakType === 'win' ? 'won' : 'lost';
+        if (bet.status === expectedStatus) {
+          currentStreak++;
+          tempStreak++;
+        } else {
+          break;
+        }
+      }
+    }
+
+    // Calculate longest streak
+    tempStreak = 0;
+    tempStreakType = 'none';
+    
+    for (let i = 0; i < resolvedBets.length; i++) {
+      const bet = resolvedBets[i];
+      const betType = bet.status === 'won' ? 'win' : 'loss';
+      
+      if (tempStreakType === 'none' || tempStreakType === betType) {
+        tempStreak++;
+        tempStreakType = betType;
+        longestStreak = Math.max(longestStreak, tempStreak);
+      } else {
+        tempStreak = 1;
+        tempStreakType = betType;
+      }
+    }
+
+    return { currentStreak, longestStreak, streakType: currentStreakType };
+  };
 
   useEffect(() => {
-
     const fetchStats = async () => {
       try {
         const userStats = await getUserBettingStats(user.id);
-        setStats(userStats);
+        
+        // Calculate streaks
+        const streakData = calculateStreaks(userBets);
+        
+        setStats({
+          ...userStats,
+          ...streakData
+        });
       } catch (error) {
         console.error('Failed to fetch user stats:', error);
         // Fallback to calculating from local data
@@ -66,6 +129,9 @@ const [eventNames, setEventNames] = useState<{ [eventId: string]: string }>({});
           }
         });
 
+        // Calculate streaks
+        const streakData = calculateStreaks(userBets);
+
         setStats({
           total_bets: user.totalBets,
           total_winnings: user.totalWinnings,
@@ -76,7 +142,8 @@ const [eventNames, setEventNames] = useState<{ [eventId: string]: string }>({});
           averageBetSize: Math.round(averageBetSize * 100) / 100,
           netProfit: Math.round(netProfit * 100) / 100,
           wonBetsCount: wonBets.length,
-          lostBetsCount: lostBets.length
+          lostBetsCount: lostBets.length,
+          ...streakData
         });
       } finally {
         setLoading(false);
@@ -143,8 +210,27 @@ const [eventNames, setEventNames] = useState<{ [eventId: string]: string }>({});
     );
   }
 
+  // Only show active bets (resolved bets are removed)
   const activeBets = userBets.filter(bet => bet.status === 'active');
   const netPL = user.netPL !== undefined ? user.netPL : stats.netProfit;
+
+  const getStreakIcon = () => {
+    if (stats.currentStreak === 0) return <Activity className="w-5 h-5 text-gray-600" />;
+    if (stats.streakType === 'win') return <Flame className="w-5 h-5 text-orange-500" />;
+    return <Zap className="w-5 h-5 text-blue-500" />;
+  };
+
+  const getStreakColor = () => {
+    if (stats.currentStreak === 0) return 'text-gray-600';
+    if (stats.streakType === 'win') return 'text-orange-600';
+    return 'text-blue-600';
+  };
+
+  const getStreakBg = () => {
+    if (stats.currentStreak === 0) return 'bg-gray-50';
+    if (stats.streakType === 'win') return 'bg-orange-50';
+    return 'bg-blue-50';
+  };
 
   return (
     <div className="bg-white rounded-xl shadow-lg p-6">
@@ -192,48 +278,47 @@ const [eventNames, setEventNames] = useState<{ [eventId: string]: string }>({});
           </div>
         </div>
 
-        {/* <div className={`p-4 rounded-lg ${netPL >= 0 ? 'bg-green-50' : 'bg-red-50'}`}>
+        <div className={`p-4 rounded-lg ${getStreakBg()}`}>
           <div className="flex items-center gap-2 mb-2">
-            {netPL >= 0 ? (
-              <Award className="w-5 h-5 text-green-600" />
-            ) : (
-              <TrendingDown className="w-5 h-5 text-red-600" />
-            )}
-            <span className={`text-sm font-medium ${netPL >= 0 ? 'text-green-800' : 'text-red-800'}`}>
-              Net P&L
+            {getStreakIcon()}
+            <span className={`text-sm font-medium ${getStreakColor()}`}>
+              {stats.streakType === 'win' ? 'Win Streak' : 
+               stats.streakType === 'loss' ? 'Current Streak' : 'No Streak'}
             </span>
           </div>
-          <div className={`text-2xl font-bold ${netPL >= 0 ? 'text-green-900' : 'text-red-900'}`}>
-            {netPL >= 0 ? '+' : ''}{formatCurrency(netPL)}
-          </div>
-        </div> */}
-      </div>
-
-      {/* Detailed Stats */}
-      {/* <div className="bg-gray-50 p-4 rounded-lg mb-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
-          <BarChart3 className="w-5 h-5" />
-          Betting Performances
-        </h3>
-        <div className="grid grid-cols-2 gap-4 text-sm">
-          <div className="flex justify-between">
-            <span className="text-gray-600">Win Rate:</span>
-            <span className="font-semibold text-green-600">{stats.winRate}%</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-gray-600">Avg Bet Size:</span>
-            <span className="font-semibold">{formatCurrency(stats.averageBetSize)}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-gray-600">Bets Won:</span>
-            <span className="font-semibold text-green-600">{stats.wonBetsCount}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-gray-600">Bets Lost:</span>
-            <span className="font-semibold text-red-600">{stats.lostBetsCount}</span>
+          <div className={`text-2xl font-bold ${getStreakColor()}`}>
+            {stats.currentStreak}
+            {stats.streakType === 'win' && stats.currentStreak >= 3 && (
+              <span className="text-sm ml-1">🔥</span>
+            )}
           </div>
         </div>
-      </div> */}
+      </div>
+
+      {/* Streak Motivation */}
+      {stats.currentStreak > 0 && (
+        <div className={`p-4 rounded-lg mb-6 ${
+          stats.streakType === 'win' ? 'bg-gradient-to-r from-orange-100 to-red-100' : 'bg-blue-50'
+        }`}>
+          <div className="flex items-center gap-2 mb-2">
+            <Trophy className="w-5 h-5 text-yellow-600" />
+            <span className="font-semibold text-gray-900">
+              {stats.streakType === 'win' ? 'You\'re on fire!' : 'Keep going!'}
+            </span>
+          </div>
+          <p className="text-sm text-gray-700">
+            {stats.streakType === 'win' 
+              ? `${stats.currentStreak} wins in a row! Your longest streak is ${stats.longestStreak}.`
+              : `Current streak: ${stats.currentStreak}. Your longest win streak is ${stats.longestStreak}.`
+            }
+          </p>
+          {stats.streakType === 'win' && stats.currentStreak >= 5 && (
+            <p className="text-sm text-orange-700 font-medium mt-1">
+              🎯 Amazing! You're in the zone!
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Active Bets */}
       {stats.activeBetsCount > 0 && (
@@ -246,10 +331,9 @@ const [eventNames, setEventNames] = useState<{ [eventId: string]: string }>({});
             {activeBets.slice(0, 3).map((bet) => (
               <div key={bet.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                 <div className="flex-1">
-
                   <div className="font-medium text-gray-900">
-  {eventNames[bet.eventId] || `Event #${bet.eventId.slice(-4)}`}
-</div>
+                    {eventNames[bet.eventId] || `Event #${bet.eventId.slice(-4)}`}
+                  </div>
                   <div className="text-sm text-gray-600">
                     Placed on {bet.placedAt.toLocaleDateString()}
                   </div>
@@ -281,6 +365,19 @@ const [eventNames, setEventNames] = useState<{ [eventId: string]: string }>({});
           <h3 className="text-lg font-semibold text-gray-900 mb-1">Ready to Start Betting?</h3>
           <p className="text-gray-600 text-sm">
             Place your first bet on any of the available events to get started!
+          </p>
+        </div>
+      )}
+
+      {stats.activeBetsCount === 0 && stats.total_bets > 0 && (
+        <div className="text-center py-6">
+          <div className="text-gray-400 text-4xl mb-2">🎲</div>
+          <h3 className="text-lg font-semibold text-gray-900 mb-1">No Active Bets</h3>
+          <p className="text-gray-600 text-sm">
+            {stats.streakType === 'win' 
+              ? `You're on a ${stats.currentStreak} win streak! Keep it going!`
+              : 'Find your next winning opportunity!'
+            }
           </p>
         </div>
       )}

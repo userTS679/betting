@@ -9,6 +9,7 @@ import { UserProfile } from './components/UserProfile';
 import { PaymentManagement } from './components/PaymentManagement';
 import { AdminDashboard } from './components/admin/AdminDashboard';
 import { AuthPage } from './components/auth/AuthPage';
+import { WinningAnimation } from './components/WinningAnimation';
 import { getCurrentUser, onAuthStateChange, signOut, getUserProfile, createUserProfile } from './services/auth';
 import { fetchEvents, createEvent } from './services/events';
 import { placeBet, getUserBettingStats } from './services/betting';
@@ -20,6 +21,7 @@ function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [events, setEvents] = useState<Event[]>([]);
   const [userBets, setUserBets] = useState<Bet[]>([]);
+  const [userBetsByEvent, setUserBetsByEvent] = useState<{ [eventId: string]: Bet }>({});
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [paymentMethods] = useState<PaymentMethod[]>(mockPaymentMethods);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
@@ -28,6 +30,15 @@ function App() {
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [sortBy, setSortBy] = useState<'newest' | 'popular' | 'ending'>('newest');
   const [currentView, setCurrentView] = useState<'events' | 'payments' | 'admin'>('events');
+  
+  // Winning animation state
+  const [showWinningAnimation, setShowWinningAnimation] = useState(false);
+  const [winningAnimationData, setWinningAnimationData] = useState<{
+    winAmount: number;
+    eventTitle: string;
+    streak: number;
+  } | null>(null);
+  const [pendingWins, setPendingWins] = useState<string[]>([]);
 
   const categories = ['All', 'Weather', 'Cryptocurrency', 'Sports', 'Technology', 'Finance', 'Politics', 'Entertainment'];
 
@@ -119,9 +130,62 @@ function App() {
       }));
 
       setUserBets(formattedBets);
+
+      // Create a map of user bets by event ID (latest bet per event)
+      const betsByEvent: { [eventId: string]: Bet } = {};
+      formattedBets.forEach(bet => {
+        if (!betsByEvent[bet.eventId] || bet.placedAt > betsByEvent[bet.eventId].placedAt) {
+          betsByEvent[bet.eventId] = bet;
+        }
+      });
+      setUserBetsByEvent(betsByEvent);
+
+      // Check for new wins and show animation
+      checkForNewWins(formattedBets);
     } catch (error) {
       console.error('Failed to load user bets:', error);
       setUserBets([]);
+    }
+  };
+
+  const checkForNewWins = async (bets: Bet[]) => {
+    if (!currentUser) return;
+
+    const wonBets = bets.filter(bet => bet.status === 'won');
+    const newWins = wonBets.filter(bet => !pendingWins.includes(bet.id));
+
+    if (newWins.length > 0) {
+      // Calculate current streak
+      const resolvedBets = bets
+        .filter(bet => bet.status === 'won' || bet.status === 'lost')
+        .sort((a, b) => b.placedAt.getTime() - a.placedAt.getTime());
+
+      let currentStreak = 0;
+      for (const bet of resolvedBets) {
+        if (bet.status === 'won') {
+          currentStreak++;
+        } else {
+          break;
+        }
+      }
+
+      // Show animation for the most recent win
+      const latestWin = newWins[0];
+      if (latestWin.payout) {
+        // Get event title
+        const event = events.find(e => e.id === latestWin.eventId);
+        const eventTitle = event?.title || 'Event';
+
+        setWinningAnimationData({
+          winAmount: latestWin.payout,
+          eventTitle,
+          streak: currentStreak
+        });
+        setShowWinningAnimation(true);
+
+        // Mark these wins as shown
+        setPendingWins(prev => [...prev, ...newWins.map(bet => bet.id)]);
+      }
     }
   };
 
@@ -219,6 +283,13 @@ function App() {
     }
   }, [isAuthenticated, currentUser]);
 
+  // Reload user bets when events change (to check for new wins)
+  useEffect(() => {
+    if (isAuthenticated && currentUser && events.length > 0) {
+      loadUserBets(currentUser.id);
+    }
+  }, [events]);
+
   const handleSignOut = async () => {
     try {
       await signOut();
@@ -227,6 +298,7 @@ function App() {
       setEvents([]);
       setUserBets([]);
       setTransactions([]);
+      setPendingWins([]);
     } catch (error) {
       console.error('Sign out failed:', error);
     }
@@ -623,6 +695,7 @@ function App() {
                   <EventCard
                     key={event.id}
                     event={event}
+                    userBet={userBetsByEvent[event.id] || null}
                     onBet={setSelectedEvent}
                     isAdmin={currentUser.isAdmin}
                   />
@@ -663,6 +736,17 @@ function App() {
         <CreateEventModal
           onClose={() => setShowCreateModal(false)}
           onCreateEvent={handleCreateEvent}
+        />
+      )}
+
+      {/* Winning Animation */}
+      {showWinningAnimation && winningAnimationData && (
+        <WinningAnimation
+          isVisible={showWinningAnimation}
+          onClose={() => setShowWinningAnimation(false)}
+          winAmount={winningAnimationData.winAmount}
+          eventTitle={winningAnimationData.eventTitle}
+          streak={winningAnimationData.streak}
         />
       )}
     </div>
