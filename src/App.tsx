@@ -315,7 +315,9 @@ function App() {
                            event.description.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesCategory = selectedCategory === 'All' || event.category === selectedCategory;
       
-      // For regular users, show all events where they have bets OR all active events
+      // For regular users, show:
+      // 1. All events where they have bets (regardless of event status)
+      // 2. All currently active events (for new betting opportunities)
       // For admins, show all events
       if (currentUser?.isAdmin) {
         return matchesSearch && matchesCategory;
