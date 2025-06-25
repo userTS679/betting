@@ -210,8 +210,14 @@ export const UserProfile: React.FC<UserProfileProps> = ({ user, userBets }) => {
     );
   }
 
-  // Only show active bets (resolved bets are removed)
+  // Show both active and resolved bets in the active bets section
   const activeBets = userBets.filter(bet => bet.status === 'active');
+  const recentResolvedBets = userBets
+    .filter(bet => bet.status === 'won' || bet.status === 'lost')
+    .sort((a, b) => b.placedAt.getTime() - a.placedAt.getTime())
+    .slice(0, 2); // Show 2 most recent resolved bets
+  
+  const betsToShow = [...activeBets, ...recentResolvedBets].slice(0, 3);
   const netPL = user.netPL !== undefined ? user.netPL : stats.netProfit;
 
   const getStreakIcon = () => {
@@ -320,46 +326,60 @@ export const UserProfile: React.FC<UserProfileProps> = ({ user, userBets }) => {
         </div>
       )}
 
-      {/* Active Bets */}
-      {stats.activeBetsCount > 0 && (
+      {/* Recent Bets (Active + Recent Resolved) */}
+      {betsToShow.length > 0 && (
         <div>
           <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
             <Target className="w-5 h-5" />
-            Active Bets ({stats.activeBetsCount})
+            Recent Activity ({activeBets.length} active)
           </h3>
           <div className="space-y-2">
-            {activeBets.slice(0, 3).map((bet) => (
-              <div key={bet.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+            {betsToShow.map((bet) => (
+              <div key={bet.id} className={`flex items-center justify-between p-3 rounded-lg ${
+                bet.status === 'active' ? 'bg-blue-50' :
+                bet.status === 'won' ? 'bg-green-50' : 'bg-gray-50'
+              }`}>
                 <div className="flex-1">
                   <div className="font-medium text-gray-900">
                     {eventNames[bet.eventId] || `Event #${bet.eventId.slice(-4)}`}
                   </div>
-                  <div className="text-sm text-gray-600">
-                    Placed on {bet.placedAt.toLocaleDateString()}
+                  <div className="text-sm text-gray-600 flex items-center gap-2">
+                    <span>Placed on {bet.placedAt.toLocaleDateString()}</span>
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      bet.status === 'active' ? 'bg-blue-100 text-blue-800' :
+                      bet.status === 'won' ? 'bg-green-100 text-green-800' :
+                      'bg-gray-100 text-gray-600'
+                    }`}>
+                      {bet.status.toUpperCase()}
+                    </span>
                   </div>
                 </div>
                 <div className="text-right">
                   <div className="font-semibold text-gray-900">{formatCurrency(bet.amount)}</div>
-                  <div className="text-sm text-gray-600">bet amount</div>
+                  {bet.status === 'won' && bet.payout && (
+                    <div className="text-sm text-green-600 font-medium">
+                      Won: {formatCurrency(bet.payout)}
+                    </div>
+                  )}
+                  {bet.status === 'active' && (
+                    <div className="text-sm text-gray-600">bet amount</div>
+                  )}
                 </div>
               </div>
             ))}
-            {stats.activeBetsCount > 3 && (
-              <div className="text-center text-sm text-gray-600">
-                +{stats.activeBetsCount - 3} more active bets
+          </div>
+          {activeBets.length > 0 && (
+            <div className="mt-3 p-3 bg-blue-50 rounded-lg">
+              <div className="flex justify-between items-center">
+                <span className="text-blue-800 font-medium">Total Active Amount:</span>
+                <span className="text-blue-900 font-bold">{formatCurrency(stats.totalActiveBetAmount)}</span>
               </div>
-            )}
-          </div>
-          <div className="mt-3 p-3 bg-blue-50 rounded-lg">
-            <div className="flex justify-between items-center">
-              <span className="text-blue-800 font-medium">Total Active Amount:</span>
-              <span className="text-blue-900 font-bold">{formatCurrency(stats.totalActiveBetAmount)}</span>
             </div>
-          </div>
+          )}
         </div>
       )}
 
-      {stats.activeBetsCount === 0 && stats.total_bets === 0 && (
+      {betsToShow.length === 0 && stats.total_bets === 0 && (
         <div className="text-center py-6">
           <div className="text-gray-400 text-4xl mb-2">🎯</div>
           <h3 className="text-lg font-semibold text-gray-900 mb-1">Ready to Start Betting?</h3>
@@ -369,7 +389,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ user, userBets }) => {
         </div>
       )}
 
-      {stats.activeBetsCount === 0 && stats.total_bets > 0 && (
+      {betsToShow.length === 0 && stats.total_bets > 0 && (
         <div className="text-center py-6">
           <div className="text-gray-400 text-4xl mb-2">🎲</div>
           <h3 className="text-lg font-semibold text-gray-900 mb-1">No Active Bets</h3>
