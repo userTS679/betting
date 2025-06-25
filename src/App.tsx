@@ -314,9 +314,27 @@ function App() {
       const matchesSearch = event.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                            event.description.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesCategory = selectedCategory === 'All' || event.category === selectedCategory;
-      return matchesSearch && matchesCategory;
+      
+      // For regular users, show all events where they have bets OR all active events
+      // For admins, show all events
+      if (currentUser?.isAdmin) {
+        return matchesSearch && matchesCategory;
+      } else {
+        const hasUserBet = userBetsByEvent[event.id];
+        const isActiveEvent = event.status === 'active';
+        return matchesSearch && matchesCategory && (hasUserBet || isActiveEvent);
+      }
     })
     .sort((a, b) => {
+      // Prioritize events where user has bets
+      const aHasUserBet = userBetsByEvent[a.id] ? 1 : 0;
+      const bHasUserBet = userBetsByEvent[b.id] ? 1 : 0;
+      
+      if (aHasUserBet !== bHasUserBet) {
+        return bHasUserBet - aHasUserBet; // Events with user bets first
+      }
+      
+      // Then sort by selected criteria
       switch (sortBy) {
         case 'popular':
           return b.participantCount - a.participantCount;
@@ -639,7 +657,7 @@ function App() {
               <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
                 <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between mb-6">
                   <h2 className="text-2xl font-bold text-gray-900">
-                    {currentUser.isAdmin ? 'Manage Events' : 'Available Events'}
+                    {currentUser.isAdmin ? 'Manage Events' : 'Your Events & Betting History'}
                   </h2>
                   
                   {currentUser.isAdmin && (
@@ -711,7 +729,9 @@ function App() {
                       ? 'Try adjusting your search or filters'
                       : currentUser.isAdmin 
                         ? 'Create your first event to get started!'
-                        : 'No events available at the moment'
+                        : userBets.length === 0
+                          ? 'Start betting on events to see your history here!'
+                          : 'No events match your current filters'
                     }
                   </p>
                 </div>
