@@ -121,6 +121,7 @@ export const deleteEvent = async (eventId: string): Promise<void> => {
  * 1. Remove 15% house cut from total pool first
  * 2. Distribute remaining 85% proportionally to winners based on their bet amounts
  * 3. Ensure total distribution never exceeds available pool
+ * 4. Update bet statuses correctly to 'won' or 'lost'
  */
 export const declareEventResult = async (
   eventId: string,
@@ -265,11 +266,11 @@ export const declareEventResult = async (
 
         console.log(`Processing winning bet ${bet.id}: amount=₹${bet.amount}, share=${((bet.amount / totalWinningBetAmount) * 100).toFixed(2)}%, payout=₹${payout.toFixed(2)}`);
 
-        // Update bet status and payout
+        // Update bet status and payout - CRITICAL: Set status to 'won'
         const { error: betUpdateError } = await supabase
           .from('bets')
           .update({
-            status: 'won',
+            status: 'won', // IMPORTANT: Update status to 'won'
             payout: payout,
             resolved_at: new Date().toISOString()
           })
@@ -343,14 +344,15 @@ export const declareEventResult = async (
       }
     }
 
-    // Process losing bets
+    // Process losing bets - CRITICAL: Set status to 'lost'
     for (const bet of losingBets) {
       try {
-        // Update bet status
+        // Update bet status - IMPORTANT: Set status to 'lost'
         const { error: betUpdateError } = await supabase
           .from('bets')
           .update({
-            status: 'lost',
+            status: 'lost', // IMPORTANT: Update status to 'lost'
+            payout: 0, // Set payout to 0 for losing bets
             resolved_at: new Date().toISOString()
           })
           .eq('id', bet.id);
@@ -404,6 +406,7 @@ export const declareEventResult = async (
     console.log(`House cut: ₹${houseAmount.toFixed(2)} (15% of ₹${totalPool})`);
     console.log(`Total distributed to winners: ₹${availableForDistribution.toFixed(2)} (85% of pool)`);
     console.log(`Distribution formula: Proportional share of 85% pool based on bet amounts`);
+    console.log(`Bet statuses updated: ${winningBets.length} set to 'won', ${losingBets.length} set to 'lost'`);
   } catch (error) {
     console.error('Exception in declareEventResult:', error);
     throw error;
