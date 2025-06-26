@@ -10,6 +10,7 @@ import { PaymentManagement } from './components/PaymentManagement';
 import { AdminDashboard } from './components/admin/AdminDashboard';
 import { AuthPage } from './components/auth/AuthPage';
 import { WinningAnimation } from './components/WinningAnimation';
+import { CompletedEventsSection } from './components/CompletedEventsSection';
 import { getCurrentUser, onAuthStateChange, signOut, getUserProfile, createUserProfile } from './services/auth';
 import { fetchEvents, createEvent } from './services/events';
 import { placeBet, getUserBettingStats } from './services/betting';
@@ -309,7 +310,11 @@ function App() {
     // No need to set state here as it will be updated automatically
   };
 
-  const filteredEvents = events
+  // Separate active and resolved events
+  const activeEvents = events.filter(event => event.status === 'active');
+  const resolvedEvents = events.filter(event => event.status === 'resolved');
+
+  const filteredActiveEvents = activeEvents
     .filter(event => {
       const matchesSearch = event.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                            event.description.toLowerCase().includes(searchTerm.toLowerCase());
@@ -504,7 +509,7 @@ function App() {
 
   const totalPool = events.reduce((sum, event) => sum + event.totalPool, 0);
   const totalEvents = events.length;
-  const activeEvents = events.filter(event => event.status === 'active').length;
+  const activeEventsCount = activeEvents.length;
   
   // Calculate Net P&L based only on resolved bets
   const netPL = calculateNetPL(userBets);
@@ -619,7 +624,7 @@ function App() {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600">Active Events</span>
-                    <span className="font-semibold">{activeEvents}</span>
+                    <span className="font-semibold">{activeEventsCount}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600">Total Events</span>
@@ -635,7 +640,7 @@ function App() {
 
             {/* Main Content */}
             <div className="lg:col-span-3">
-              {/* Controls */}
+              {/* Active Events Section */}
               <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
                 <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between mb-6">
                   <h2 className="text-2xl font-bold text-gray-900">
@@ -653,7 +658,7 @@ function App() {
                   )}
                 </div>
 
-                <div className="flex flex-col md:flex-row gap-4">
+                <div className="flex flex-col md:flex-row gap-4 mb-6">
                   <div className="flex-1">
                     <div className="relative">
                       <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
@@ -687,35 +692,44 @@ function App() {
                     <option value="ending">Ending Soon</option>
                   </select>
                 </div>
-              </div>
 
-              {/* Events Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {filteredEvents.map((event) => (
-                  <EventCard
-                    key={event.id}
-                    event={event}
-                    userBet={userBetsByEvent[event.id] || null}
-                    onBet={setSelectedEvent}
-                    isAdmin={currentUser.isAdmin}
-                  />
-                ))}
-              </div>
-
-              {filteredEvents.length === 0 && (
-                <div className="text-center py-12">
-                  <div className="text-gray-400 text-6xl mb-4">🔍</div>
-                  <h3 className="text-xl font-semibold text-gray-900 mb-2">No events found</h3>
-                  <p className="text-gray-600">
-                    {searchTerm || selectedCategory !== 'All' 
-                      ? 'Try adjusting your search or filters'
-                      : currentUser.isAdmin 
-                        ? 'Create your first event to get started!'
-                        : 'No events available at the moment'
-                    }
-                  </p>
+                {/* Active Events Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {filteredActiveEvents.map((event) => (
+                    <EventCard
+                      key={event.id}
+                      event={event}
+                      userBet={userBetsByEvent[event.id] || null}
+                      onBet={setSelectedEvent}
+                      isAdmin={currentUser.isAdmin}
+                    />
+                  ))}
                 </div>
-              )}
+
+                {filteredActiveEvents.length === 0 && (
+                  <div className="text-center py-12">
+                    <div className="text-gray-400 text-6xl mb-4">🔍</div>
+                    <h3 className="text-xl font-semibold text-gray-900 mb-2">No active events found</h3>
+                    <p className="text-gray-600">
+                      {searchTerm || selectedCategory !== 'All' 
+                        ? 'Try adjusting your search or filters'
+                        : currentUser.isAdmin 
+                          ? 'Create your first event to get started!'
+                          : 'No active events available at the moment'
+                      }
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Completed Events Section */}
+              <CompletedEventsSection
+                resolvedEvents={resolvedEvents}
+                userBets={userBets}
+                userBetsByEvent={userBetsByEvent}
+                onEventClick={setSelectedEvent}
+                isAdmin={currentUser.isAdmin}
+              />
             </div>
           </div>
         </div>
