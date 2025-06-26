@@ -742,6 +742,23 @@ function App() {
                 )}
               </div>
 
+              {filteredEvents.length === 0 && (
+                <div className="text-center py-12">
+                  <div className="text-gray-400 text-6xl mb-4">🔍</div>
+                  <h3 className="text-xl font-semibold text-gray-900 mb-2">No events found</h3>
+                  <p className="text-gray-600">
+                    {searchTerm || selectedCategory !== 'All' 
+                      ? 'Try adjusting your search or filters'
+                      : currentUser.isAdmin 
+                        ? 'Create your first event to get started!'
+                        : userBets.length === 0
+                          ? 'Start betting on events to see your history here!'
+                          : 'No events match your current filters'
+                    }
+                  </p>
+                </div>
+              )}
+
               {/* Completed Events Section */}
               <CompletedEventsSection
                 resolvedEvents={resolvedEvents}
