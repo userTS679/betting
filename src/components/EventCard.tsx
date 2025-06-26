@@ -47,10 +47,26 @@ export const EventCard: React.FC<EventCardProps> = ({ event, isAdmin = false, us
 
   const userBetOption = getUserBetOption();
 
+  // Determine if user won or lost based on event resolution
+  const getUserBetResult = () => {
+    if (!userBet || event.status !== 'resolved' || !event.winningOption) {
+      return userBet?.status || null;
+    }
+    
+    // If event is resolved, determine win/loss based on winning option
+    if (userBet.optionId === event.winningOption) {
+      return 'won';
+    } else {
+      return 'lost';
+    }
+  };
+
+  const userBetResult = getUserBetResult();
+
   const getResultDisplay = () => {
     if (!userBet || event.status !== 'resolved') return null;
 
-    const isWinner = userBet.status === 'won';
+    const isWinner = userBetResult === 'won';
     const winningOption = event.options.find(opt => opt.id === event.winningOption);
 
     return (
@@ -93,7 +109,7 @@ export const EventCard: React.FC<EventCardProps> = ({ event, isAdmin = false, us
           </div>
         </div>
 
-        {isWinner && (
+        {isWinner && userBet.payout && (
           <div className="mt-3 text-center">
             <div className="inline-flex items-center gap-1 px-3 py-1 bg-green-100 rounded-full">
               <Trophy className="w-4 h-4 text-green-600" />
@@ -111,8 +127,8 @@ export const EventCard: React.FC<EventCardProps> = ({ event, isAdmin = false, us
   const getCardStyling = () => {
     if (!userBet) return "bg-white";
     if (event.status === 'resolved') {
-      if (userBet.status === 'won') return "bg-white";
-      if (userBet.status === 'lost') return "bg-gray-50 opacity-75";
+      if (userBetResult === 'won') return "bg-white";
+      if (userBetResult === 'lost') return "bg-gray-50 opacity-75";
     }
     return "bg-white";
   };
@@ -120,8 +136,8 @@ export const EventCard: React.FC<EventCardProps> = ({ event, isAdmin = false, us
   const getBorderStyling = () => {
     if (!userBet) return "border-gray-100";
     if (event.status === 'resolved') {
-      if (userBet.status === 'won') return "border-green-200";
-      if (userBet.status === 'lost') return "border-gray-200";
+      if (userBetResult === 'won') return "border-green-200";
+      if (userBetResult === 'lost') return "border-gray-200";
     }
     return "border-gray-100";
   };
@@ -143,26 +159,28 @@ export const EventCard: React.FC<EventCardProps> = ({ event, isAdmin = false, us
             </span>
             {userBet && (
               <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                userBet.status === 'active' ? 'bg-blue-100 text-blue-800' :
-                userBet.status === 'won' ? 'bg-green-100 text-green-800' :
-                'bg-gray-100 text-gray-600'
+                userBet.status === 'active' && event.status === 'active' ? 'bg-blue-100 text-blue-800' :
+                userBetResult === 'won' ? 'bg-green-100 text-green-800' :
+                userBetResult === 'lost' ? 'bg-gray-100 text-gray-600' :
+                'bg-blue-100 text-blue-800'
               }`}>
-                {userBet.status === 'active' ? 'BETTING' : 
-                 userBet.status === 'won' ? 'WON' : 'LOST'}
+                {userBet.status === 'active' && event.status === 'active' ? 'BETTING' : 
+                 userBetResult === 'won' ? 'WON' : 
+                 userBetResult === 'lost' ? 'LOST' : 'BETTING'}
               </span>
             )}
           </div>
         </div>
 
         <h3 className={`text-xl font-bold mb-2 line-clamp-2 leading-tight ${
-          userBet?.status === 'lost' && event.status === 'resolved' ? 'text-gray-600' : 'text-gray-900'
+          userBetResult === 'lost' && event.status === 'resolved' ? 'text-gray-600' : 'text-gray-900'
         }`}>
           {event.title}
         </h3>
 
         <div className="relative mb-4">
           <div className={`${
-            userBet?.status === 'lost' && event.status === 'resolved' 
+            userBetResult === 'lost' && event.status === 'resolved' 
               ? 'bg-gradient-to-r from-gray-400 via-gray-500 to-gray-400' 
               : 'bg-gradient-to-r from-emerald-500 via-green-500 to-teal-500'
           } rounded-lg p-4 text-white shadow-lg overflow-hidden flex flex-col items-center justify-center`}>
@@ -170,7 +188,7 @@ export const EventCard: React.FC<EventCardProps> = ({ event, isAdmin = false, us
               {formatCurrency(event.totalPool)}
             </div>
             <div className="text-sm opacity-80 mt-1">Total Pool</div>
-            {!(userBet?.status === 'lost' && event.status === 'resolved') && (
+            {!(userBetResult === 'lost' && event.status === 'resolved') && (
               <>
                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -skew-x-12 animate-pulse opacity-30"></div>
                 <div className="absolute top-2 right-8 w-1 h-1 bg-white rounded-full animate-ping"></div>
@@ -181,7 +199,7 @@ export const EventCard: React.FC<EventCardProps> = ({ event, isAdmin = false, us
         </div>
 
         <div className={`flex justify-between items-center gap-3 mb-4 text-sm ${
-          userBet?.status === 'lost' && event.status === 'resolved' ? 'text-gray-500' : 'text-gray-600'
+          userBetResult === 'lost' && event.status === 'resolved' ? 'text-gray-500' : 'text-gray-600'
         }`}>
           <div className="flex items-center gap-2">
             <Clock className="w-4 h-4" />
@@ -207,40 +225,40 @@ export const EventCard: React.FC<EventCardProps> = ({ event, isAdmin = false, us
                 key={option.id} 
                 className={`flex items-center justify-between p-3 rounded-lg transition-colors ${
                   isWinningOption ? 'bg-green-100 border-2 border-green-300' :
-                  isUserOption ? (userBet?.status === 'lost' && event.status === 'resolved' ? 'bg-gray-100 border-2 border-gray-300' : 'bg-blue-100 border-2 border-blue-300') :
-                  (userBet?.status === 'lost' && event.status === 'resolved' ? 'bg-gray-50 hover:bg-gray-100' : 'bg-gray-50 hover:bg-gray-100')
+                  isUserOption ? (userBetResult === 'lost' && event.status === 'resolved' ? 'bg-gray-100 border-2 border-gray-300' : 'bg-blue-100 border-2 border-blue-300') :
+                  (userBetResult === 'lost' && event.status === 'resolved' ? 'bg-gray-50 hover:bg-gray-100' : 'bg-gray-50 hover:bg-gray-100')
                 }`}
               >
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <span className={`font-medium text-sm truncate block ${
-                      userBet?.status === 'lost' && event.status === 'resolved' ? 'text-gray-600' : 'text-gray-900'
+                      userBetResult === 'lost' && event.status === 'resolved' ? 'text-gray-600' : 'text-gray-900'
                     }`}>
                       {option.label}
                     </span>
                     {isWinningOption && <Trophy className="w-4 h-4 text-green-600" />}
                     {isUserOption && !isWinningOption && (
                       <span className={`text-xs ${
-                        userBet?.status === 'lost' && event.status === 'resolved' ? 'text-gray-500' : 'text-blue-600'
+                        userBetResult === 'lost' && event.status === 'resolved' ? 'text-gray-500' : 'text-blue-600'
                       }`}>
                         YOUR BET
                       </span>
                     )}
                   </div>
                   <div className={`text-xs ${
-                    userBet?.status === 'lost' && event.status === 'resolved' ? 'text-gray-400' : 'text-gray-500'
+                    userBetResult === 'lost' && event.status === 'resolved' ? 'text-gray-400' : 'text-gray-500'
                   }`}>
                     {option.bettors} bets • {formatCurrency(option.totalBets)}
                   </div>
                 </div>
                 <div className="text-right ml-2">
                   <div className={`font-bold text-lg ${
-                    userBet?.status === 'lost' && event.status === 'resolved' ? 'text-gray-500' : 'text-blue-600'
+                    userBetResult === 'lost' && event.status === 'resolved' ? 'text-gray-500' : 'text-blue-600'
                   }`}>
                     {option.odds.toFixed(2)}x
                   </div>
                   <div className={`text-xs ${
-                    userBet?.status === 'lost' && event.status === 'resolved' ? 'text-gray-400' : 'text-gray-400'
+                    userBetResult === 'lost' && event.status === 'resolved' ? 'text-gray-400' : 'text-gray-400'
                   }`}>
                     live returns
                   </div>
@@ -251,7 +269,7 @@ export const EventCard: React.FC<EventCardProps> = ({ event, isAdmin = false, us
 
           {event.options.length > 2 && (
             <div className={`text-center text-xs py-1 ${
-              userBet?.status === 'lost' && event.status === 'resolved' ? 'text-gray-400' : 'text-gray-500'
+              userBetResult === 'lost' && event.status === 'resolved' ? 'text-gray-400' : 'text-gray-500'
             }`}>
               +{event.options.length - 2} more options
             </div>
@@ -265,7 +283,7 @@ export const EventCard: React.FC<EventCardProps> = ({ event, isAdmin = false, us
           onClick={() => onBet(event)}
           disabled={event.status !== 'active' || timeLeft <= 0}
           className={`w-full font-semibold py-3 px-6 rounded-xl transition-all duration-200 disabled:cursor-not-allowed shadow-lg hover:shadow-xl ${
-            userBet?.status === 'lost' && event.status === 'resolved'
+            userBetResult === 'lost' && event.status === 'resolved'
               ? 'bg-gray-400 text-gray-600 cursor-not-allowed'
               : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:from-gray-400 disabled:to-gray-500 text-white'
           }`}
