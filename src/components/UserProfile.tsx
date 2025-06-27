@@ -178,20 +178,20 @@ export const UserProfile: React.FC<UserProfileProps> = ({ user, userBets }) => {
 
   if (loading) {
     return (
-      <div className="bg-white rounded-xl shadow-lg p-6">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 transition-colors duration-300">
         <div className="animate-pulse">
           <div className="flex items-center gap-4 mb-6">
-            <div className="w-16 h-16 bg-gray-200 rounded-full"></div>
+            <div className="w-16 h-16 bg-gray-200 dark:bg-gray-700 rounded-full"></div>
             <div>
-              <div className="h-6 bg-gray-200 rounded w-32 mb-2"></div>
-              <div className="h-4 bg-gray-200 rounded w-24"></div>
+              <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-32 mb-2"></div>
+              <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-24"></div>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
             {[1, 2, 3, 4].map(i => (
-              <div key={i} className="bg-gray-100 p-4 rounded-lg">
-                <div className="h-4 bg-gray-200 rounded w-16 mb-2"></div>
-                <div className="h-6 bg-gray-200 rounded w-20"></div>
+              <div key={i} className="bg-gray-100 dark:bg-gray-700 p-4 rounded-lg">
+                <div className="h-4 bg-gray-200 dark:bg-gray-600 rounded w-16 mb-2"></div>
+                <div className="h-6 bg-gray-200 dark:bg-gray-600 rounded w-20"></div>
               </div>
             ))}
           </div>
@@ -202,8 +202,8 @@ export const UserProfile: React.FC<UserProfileProps> = ({ user, userBets }) => {
 
   if (!stats) {
     return (
-      <div className="bg-white rounded-xl shadow-lg p-6">
-        <div className="text-center text-gray-500">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 transition-colors duration-300">
+        <div className="text-center text-gray-500 dark:text-gray-400">
           Failed to load user statistics
         </div>
       </div>
@@ -221,32 +221,32 @@ export const UserProfile: React.FC<UserProfileProps> = ({ user, userBets }) => {
   const netPL = user.netPL !== undefined ? user.netPL : stats.netProfit;
 
   const getStreakIcon = () => {
-    if (stats.currentStreak === 0) return <Activity className="w-5 h-5 text-gray-600" />;
+    if (stats.currentStreak === 0) return <Activity className="w-5 h-5 text-gray-600 dark:text-gray-400" />;
     if (stats.streakType === 'win') return <Flame className="w-5 h-5 text-orange-500" />;
     return <Zap className="w-5 h-5 text-blue-500" />;
   };
 
   const getStreakColor = () => {
-    if (stats.currentStreak === 0) return 'text-gray-600';
-    if (stats.streakType === 'win') return 'text-orange-600';
-    return 'text-blue-600';
+    if (stats.currentStreak === 0) return 'text-gray-600 dark:text-gray-400';
+    if (stats.streakType === 'win') return 'text-orange-600 dark:text-orange-400';
+    return 'text-blue-600 dark:text-blue-400';
   };
 
   const getStreakBg = () => {
-    if (stats.currentStreak === 0) return 'bg-gray-50';
-    if (stats.streakType === 'win') return 'bg-orange-50';
-    return 'bg-blue-50';
+    if (stats.currentStreak === 0) return 'bg-gray-50 dark:bg-gray-700';
+    if (stats.streakType === 'win') return 'bg-orange-50 dark:bg-orange-900/20';
+    return 'bg-blue-50 dark:bg-blue-900/20';
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-lg p-6">
+    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 transition-colors duration-300">
       <div className="flex items-center gap-4 mb-6">
         <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
           <User className="w-8 h-8 text-white" />
         </div>
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">{user.name}</h2>
-          <p className="text-gray-600">
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">{user.name}</h2>
+          <p className="text-gray-600 dark:text-gray-400">
             {user.isAdmin ? 'Event Creator' : 'Bettor'}
           </p>
         </div>
@@ -254,37 +254,43 @@ export const UserProfile: React.FC<UserProfileProps> = ({ user, userBets }) => {
 
       {/* Primary Stats */}
       <div className="grid grid-cols-2 gap-4 mb-6">
-        <div className="bg-green-50 p-4 rounded-lg">
+        <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg border border-green-200 dark:border-green-800">
           <div className="flex items-center gap-2 mb-2">
-            <Wallet className="w-5 h-5 text-green-600" />
-            <span className="text-sm font-medium text-green-800">Balance</span>
+            <Wallet className="w-5 h-5 text-green-600 dark:text-green-400" />
+            <span className="text-sm font-medium text-green-800 dark:text-green-300">Balance</span>
           </div>
-          <div className="text-2xl font-bold text-green-900">
+          <div className="text-2xl font-bold text-green-900 dark:text-green-100">
             {formatCurrency(stats.balance)}
           </div>
         </div>
 
-        <div className="bg-blue-50 p-4 rounded-lg">
+        <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-200 dark:border-blue-800">
           <div className="flex items-center gap-2 mb-2">
-            <Activity className="w-5 h-5 text-blue-600" />
-            <span className="text-sm font-medium text-blue-800">Total Bets</span>
+            <Activity className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+            <span className="text-sm font-medium text-blue-800 dark:text-blue-300">Total Bets</span>
           </div>
-          <div className="text-2xl font-bold text-blue-900">
+          <div className="text-2xl font-bold text-blue-900 dark:text-blue-100">
             {stats.total_bets}
           </div>
         </div>
 
-        <div className="bg-purple-50 p-4 rounded-lg">
+        <div className="bg-purple-50 dark:bg-purple-900/20 p-4 rounded-lg border border-purple-200 dark:border-purple-800">
           <div className="flex items-center gap-2 mb-2">
-            <TrendingUp className="w-5 h-5 text-purple-600" />
-            <span className="text-sm font-medium text-purple-800">Total Winnings</span>
+            <TrendingUp className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+            <span className="text-sm font-medium text-purple-800 dark:text-purple-300">Total Winnings</span>
           </div>
-          <div className="text-2xl font-bold text-purple-900">
+          <div className="text-2xl font-bold text-purple-900 dark:text-purple-100">
             {formatCurrency(stats.total_winnings)}
           </div>
         </div>
 
-        <div className={`p-4 rounded-lg ${getStreakBg()}`}>
+        <div className={`p-4 rounded-lg border ${getStreakBg()} ${
+          stats.currentStreak === 0 
+            ? 'border-gray-200 dark:border-gray-700' 
+            : stats.streakType === 'win' 
+              ? 'border-orange-200 dark:border-orange-800' 
+              : 'border-blue-200 dark:border-blue-800'
+        }`}>
           <div className="flex items-center gap-2 mb-2">
             {getStreakIcon()}
             <span className={`text-sm font-medium ${getStreakColor()}`}>
@@ -303,23 +309,25 @@ export const UserProfile: React.FC<UserProfileProps> = ({ user, userBets }) => {
 
       {/* Streak Motivation */}
       {stats.currentStreak > 0 && (
-        <div className={`p-4 rounded-lg mb-6 ${
-          stats.streakType === 'win' ? 'bg-gradient-to-r from-orange-100 to-red-100' : 'bg-blue-50'
+        <div className={`p-4 rounded-lg mb-6 border ${
+          stats.streakType === 'win' 
+            ? 'bg-gradient-to-r from-orange-100 to-red-100 dark:from-orange-900/20 dark:to-red-900/20 border-orange-200 dark:border-orange-800' 
+            : 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800'
         }`}>
           <div className="flex items-center gap-2 mb-2">
-            <Trophy className="w-5 h-5 text-yellow-600" />
-            <span className="font-semibold text-gray-900">
+            <Trophy className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
+            <span className="font-semibold text-gray-900 dark:text-white">
               {stats.streakType === 'win' ? 'You\'re on fire!' : 'Keep going!'}
             </span>
           </div>
-          <p className="text-sm text-gray-700">
+          <p className="text-sm text-gray-700 dark:text-gray-300">
             {stats.streakType === 'win' 
               ? `${stats.currentStreak} wins in a row! Your longest streak is ${stats.longestStreak}.`
               : `Current streak: ${stats.currentStreak}. Your longest win streak is ${stats.longestStreak}.`
             }
           </p>
           {stats.streakType === 'win' && stats.currentStreak >= 5 && (
-            <p className="text-sm text-orange-700 font-medium mt-1">
+            <p className="text-sm text-orange-700 dark:text-orange-300 font-medium mt-1">
               🎯 Amazing! You're in the zone!
             </p>
           )}
@@ -329,50 +337,55 @@ export const UserProfile: React.FC<UserProfileProps> = ({ user, userBets }) => {
       {/* Recent Bets (Active + Recent Resolved) */}
       {betsToShow.length > 0 && (
         <div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
             <Target className="w-5 h-5" />
             Recent Activity ({activeBets.length} active)
           </h3>
           <div className="space-y-2">
             {betsToShow.map((bet) => (
-              <div key={bet.id} className={`flex items-center justify-between p-3 rounded-lg ${
-                bet.status === 'active' ? 'bg-blue-50' :
-                bet.status === 'won' ? 'bg-green-50' : 'bg-gray-50'
+              <div key={bet.id} className={`flex items-center justify-between p-3 rounded-lg border ${
+                bet.status === 'active' 
+                  ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800' :
+                bet.status === 'won' 
+                  ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800' 
+                  : 'bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600'
               }`}>
                 <div className="flex-1">
-                  <div className="font-medium text-gray-900">
+                  <div className="font-medium text-gray-900 dark:text-white">
                     {eventNames[bet.eventId] || `Event #${bet.eventId.slice(-4)}`}
                   </div>
-                  <div className="text-sm text-gray-600 flex items-center gap-2">
+                  <div className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-2">
                     <span>Placed on {bet.placedAt.toLocaleDateString()}</span>
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      bet.status === 'active' ? 'bg-blue-100 text-blue-800' :
-                      bet.status === 'won' ? 'bg-green-100 text-green-800' :
-                      'bg-gray-100 text-gray-600'
+                      bet.status === 'active' 
+                        ? 'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-300' :
+                      bet.status === 'won' 
+                        ? 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-300' :
+                      'bg-gray-100 dark:bg-gray-600 text-gray-600 dark:text-gray-300'
                     }`}>
                       {bet.status.toUpperCase()}
                     </span>
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="font-semibold text-gray-900">{formatCurrency(bet.amount)}</div>
+                  <div className="font-semibold text-gray-900 dark:text-white">{formatCurrency(bet.amount)}</div>
                   {bet.status === 'won' && bet.payout && (
-                    <div className="text-sm text-green-600 font-medium">
+                    <div className="text-sm text-green-600 dark:text-green-400 font-medium">
                       Won: {formatCurrency(bet.payout)}
                     </div>
                   )}
                   {bet.status === 'active' && (
-                    <div className="text-sm text-gray-600">bet amount</div>
+                    <div className="text-sm text-gray-600 dark:text-gray-400">bet amount</div>
                   )}
                 </div>
               </div>
             ))}
           </div>
           {activeBets.length > 0 && (
-            <div className="mt-3 p-3 bg-blue-50 rounded-lg">
+            <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
               <div className="flex justify-between items-center">
-                <span className="text-blue-800 font-medium">Total Active Amount:</span>
-                <span className="text-blue-900 font-bold">{formatCurrency(stats.totalActiveBetAmount)}</span>
+                <span className="text-blue-800 dark:text-blue-300 font-medium">Total Active Amount:</span>
+                <span className="text-blue-900 dark:text-blue-100 font-bold">{formatCurrency(stats.totalActiveBetAmount)}</span>
               </div>
             </div>
           )}
@@ -381,9 +394,9 @@ export const UserProfile: React.FC<UserProfileProps> = ({ user, userBets }) => {
 
       {betsToShow.length === 0 && stats.total_bets === 0 && (
         <div className="text-center py-6">
-          <div className="text-gray-400 text-4xl mb-2">🎯</div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-1">Ready to Start Betting?</h3>
-          <p className="text-gray-600 text-sm">
+          <div className="text-gray-400 dark:text-gray-500 text-4xl mb-2">🎯</div>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">Ready to Start Betting?</h3>
+          <p className="text-gray-600 dark:text-gray-400 text-sm">
             Place your first bet on any of the available events to get started!
           </p>
         </div>
@@ -391,9 +404,9 @@ export const UserProfile: React.FC<UserProfileProps> = ({ user, userBets }) => {
 
       {betsToShow.length === 0 && stats.total_bets > 0 && (
         <div className="text-center py-6">
-          <div className="text-gray-400 text-4xl mb-2">🎲</div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-1">No Active Bets</h3>
-          <p className="text-gray-600 text-sm">
+          <div className="text-gray-400 dark:text-gray-500 text-4xl mb-2">🎲</div>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">No Active Bets</h3>
+          <p className="text-gray-600 dark:text-gray-400 text-sm">
             {stats.streakType === 'win' 
               ? `You're on a ${stats.currentStreak} win streak! Keep it going!`
               : 'Find your next winning opportunity!'
