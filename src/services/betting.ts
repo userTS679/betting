@@ -270,11 +270,18 @@ export const resolveBet = async (
   let payout = 0;
 
   if (isWinner) {
-    // Your formula: payout = bet_amount * odds_at_resolution
     payout = userBetAmount * winningOptionOdds;
-    payout = Math.max(payout, userBetAmount); // Ensure at least bet amount is returned
+    payout = Math.max(payout, userBetAmount);
   }
-  
+
+  // Log the update attempt
+  console.log('[resolveBet] Updating bet:', {
+    betId,
+    status,
+    payout: isWinner ? payout : null,
+    resolved_at: new Date().toISOString()
+  });
+
   const { data: bet, error: betError } = await supabase
     .from('bets')
     .update({
@@ -286,7 +293,14 @@ export const resolveBet = async (
     .select('user_id, amount')
     .single();
 
-  if (betError) throw new Error('Failed to resolve bet');
+  if (betError) {
+    console.error('[resolveBet] Failed to resolve bet:', betError);
+    throw new Error('Failed to resolve bet: ' + betError.message);
+  }
+  if (!bet) {
+    console.error('[resolveBet] No bet returned after update for betId:', betId);
+    throw new Error('No bet returned after update');
+  }
 
   if (isWinner && payout) {
     // Get current user balance and winnings
@@ -296,7 +310,10 @@ export const resolveBet = async (
       .eq('id', bet.user_id)
       .single();
 
-    if (userFetchError) throw new Error('Failed to fetch user data');
+    if (userFetchError) {
+      console.error('[resolveBet] Failed to fetch user data:', userFetchError);
+      throw new Error('Failed to fetch user data: ' + userFetchError.message);
+    }
 
     // Update user balance and winnings
     const { error: userError } = await supabase
@@ -307,10 +324,13 @@ export const resolveBet = async (
       })
       .eq('id', bet.user_id);
 
-    if (userError) throw new Error('Failed to update user winnings');
+    if (userError) {
+      console.error('[resolveBet] Failed to update user winnings:', userError);
+      throw new Error('Failed to update user winnings: ' + userError.message);
+    }
 
     // Create winning transaction
-    await supabase
+    const { error: txnError } = await supabase
       .from('transactions')
       .insert({
         user_id: bet.user_id,
@@ -320,9 +340,14 @@ export const resolveBet = async (
         status: 'completed',
         bet_id: betId
       });
+
+    if (txnError) {
+      console.error('[resolveBet] Failed to create winning transaction:', txnError);
+      throw new Error('Failed to create winning transaction: ' + txnError.message);
+    }
   } else {
     // Create losing transaction record
-    await supabase
+    const { error: txnError } = await supabase
       .from('transactions')
       .insert({
         user_id: bet.user_id,
@@ -332,6 +357,11 @@ export const resolveBet = async (
         status: 'completed',
         bet_id: betId
       });
+
+    if (txnError) {
+      console.error('[resolveBet] Failed to create losing transaction:', txnError);
+      throw new Error('Failed to create losing transaction: ' + txnError.message);
+    }
   }
 };
 
