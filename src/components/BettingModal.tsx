@@ -127,6 +127,17 @@ export const BettingModal: React.FC<BettingModalProps> = ({
     return colors[index % colors.length];
   };
 
+  // Calculate dynamic odds for display (consistent with EventCard)
+  const getDisplayOdds = (option: any, testBetAmount: number = 100) => {
+    try {
+      const calculation = calculateBetReturns(currentEvent, option.id, testBetAmount, isAdmin);
+      return calculation.effectiveOdds;
+    } catch (error) {
+      // Fallback to stored odds if calculation fails
+      return option.odds;
+    }
+  };
+
   // Recalculate returns whenever bet amount or selected option changes
   useEffect(() => {
     if (selectedOption && betAmount > 0) {
@@ -282,12 +293,7 @@ export const BettingModal: React.FC<BettingModalProps> = ({
                   <h4 className="font-semibold text-gray-900 mb-3">Select Your Prediction</h4>
                   <div className="space-y-2">
                     {currentEvent.options.map((option) => {
-                      const dynamicCalculation = calculateBetReturns(
-                        currentEvent,
-                        option.id,
-                        selectedOption?.id === option.id ? betAmount : 100,
-                        isAdmin
-                      );
+                      const displayOdds = getDisplayOdds(option, selectedOption?.id === option.id ? betAmount : 100);
                       return (
                         <button
                           key={option.id}
@@ -309,7 +315,7 @@ export const BettingModal: React.FC<BettingModalProps> = ({
                             <div className={`font-bold text-xl transition-all duration-300 ${
                               isUpdatingOdds ? 'text-green-600 scale-110' : 'text-green-600'
                             }`}>
-                              {dynamicCalculation.effectiveOdds.toFixed(2)}x
+                              {displayOdds.toFixed(2)}x
                             </div>
                             <div className="text-sm text-gray-500">live returns</div>
                           </div>

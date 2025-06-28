@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Clock, Users, Trophy, XCircle, CheckCircle } from 'lucide-react';
 import { Event } from '../types';
-import { getRealTimeOdds, subscribeToOddsUpdates, unsubscribeFromOddsUpdates } from '../services/betting';
+import { getRealTimeOdds, subscribeToOddsUpdates, unsubscribeFromOddsUpdates, calculateBetReturns } from '../services/betting';
 
 interface EventCardProps {
   event: Event;
@@ -96,6 +96,18 @@ export const EventCard: React.FC<EventCardProps> = ({ event, isAdmin = false, us
   };
 
   const userBetResult = getUserBetResult();
+
+  // Calculate dynamic odds for display (same as betting modal)
+  const getDisplayOdds = (option: any) => {
+    try {
+      // Use the same calculation as the betting modal for consistency
+      const calculation = calculateBetReturns(currentEvent, option.id, 100, isAdmin);
+      return calculation.effectiveOdds;
+    } catch (error) {
+      // Fallback to stored odds if calculation fails
+      return option.odds;
+    }
+  };
 
   const getResultDisplay = () => {
     if (!userBet || currentEvent.status !== 'resolved') return null;
@@ -242,6 +254,7 @@ export const EventCard: React.FC<EventCardProps> = ({ event, isAdmin = false, us
           {currentEvent.options.slice(0, 2).map((option) => {
             const isWinningOption = currentEvent.winningOption === option.id;
             const isUserOption = userBet?.optionId === option.id;
+            const displayOdds = getDisplayOdds(option);
             
             return (
               <div 
@@ -272,7 +285,7 @@ export const EventCard: React.FC<EventCardProps> = ({ event, isAdmin = false, us
                   <div className={`font-bold text-lg transition-all duration-300 ${
                     isUpdatingOdds ? 'text-blue-600 dark:text-blue-400 scale-110' : 'text-blue-600 dark:text-blue-400'
                   }`}>
-                    {option.odds.toFixed(2)}x
+                    {displayOdds.toFixed(2)}x
                   </div>
                   <div className="text-xs text-gray-400 dark:text-gray-500">
                     live odds
