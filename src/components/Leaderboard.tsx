@@ -25,7 +25,9 @@ import {
   Clock,
   Sparkles,
   ArrowUp,
-  ArrowDown
+  ArrowDown,
+  Gem,
+  Shield
 } from 'lucide-react';
 import { User } from '../types';
 import { supabase } from '../lib/supabase';
@@ -45,7 +47,7 @@ interface LeaderboardPlayer {
   longestStreak: number;
   memberSince: Date;
   isVerified: boolean;
-  tier: 'Diamond' | 'Platinum' | 'Gold' | 'Silver' | 'Bronze';
+  tier: 'Master' | 'Diamond' | 'Platinum' | 'Gold' | 'Silver' | 'Bronze';
   achievements: string[];
   weeklyEarnings: number;
   monthlyEarnings: number;
@@ -55,6 +57,7 @@ interface LeaderboardPlayer {
   isFollowing?: boolean;
   distanceToNextRank: number;
   nextRankEarnings: number;
+  totalPoints: number;
 }
 
 interface LeaderboardProps {
@@ -78,25 +81,70 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ currentUser }) => {
     }).format(amount);
   };
 
-  const getTierColor = (tier: string) => {
+  const getTierConfig = (tier: string) => {
     switch (tier) {
-      case 'Diamond': return 'from-cyan-400 to-blue-600';
-      case 'Platinum': return 'from-gray-300 to-gray-600';
-      case 'Gold': return 'from-yellow-400 to-orange-500';
-      case 'Silver': return 'from-gray-200 to-gray-400';
-      case 'Bronze': return 'from-orange-300 to-orange-600';
-      default: return 'from-gray-300 to-gray-500';
-    }
-  };
-
-  const getTierIcon = (tier: string) => {
-    switch (tier) {
-      case 'Diamond': return <Sparkles className="w-4 h-4" />;
-      case 'Platinum': return <Crown className="w-4 h-4" />;
-      case 'Gold': return <Trophy className="w-4 h-4" />;
-      case 'Silver': return <Medal className="w-4 h-4" />;
-      case 'Bronze': return <Award className="w-4 h-4" />;
-      default: return <Star className="w-4 h-4" />;
+      case 'Master':
+        return {
+          gradient: 'from-red-500 via-pink-500 to-purple-600',
+          bgGradient: 'from-red-50 to-pink-50 dark:from-red-900/20 dark:to-pink-900/20',
+          borderColor: 'border-red-300 dark:border-red-600',
+          textColor: 'text-red-700 dark:text-red-300',
+          icon: <Shield className="w-4 h-4" />,
+          aura: true
+        };
+      case 'Diamond':
+        return {
+          gradient: 'from-cyan-400 via-blue-500 to-indigo-600',
+          bgGradient: 'from-cyan-50 to-blue-50 dark:from-cyan-900/20 dark:to-blue-900/20',
+          borderColor: 'border-cyan-300 dark:border-cyan-600',
+          textColor: 'text-cyan-700 dark:text-cyan-300',
+          icon: <Gem className="w-4 h-4" />,
+          sparkle: true
+        };
+      case 'Platinum':
+        return {
+          gradient: 'from-gray-300 via-gray-400 to-gray-600',
+          bgGradient: 'from-gray-50 to-slate-50 dark:from-gray-900/20 dark:to-slate-900/20',
+          borderColor: 'border-gray-300 dark:border-gray-600',
+          textColor: 'text-gray-700 dark:text-gray-300',
+          icon: <Crown className="w-4 h-4" />,
+          glow: true
+        };
+      case 'Gold':
+        return {
+          gradient: 'from-yellow-400 via-orange-400 to-orange-600',
+          bgGradient: 'from-yellow-50 to-orange-50 dark:from-yellow-900/20 dark:to-orange-900/20',
+          borderColor: 'border-yellow-300 dark:border-yellow-600',
+          textColor: 'text-yellow-700 dark:text-yellow-300',
+          icon: <Trophy className="w-4 h-4" />,
+          shine: true
+        };
+      case 'Silver':
+        return {
+          gradient: 'from-gray-200 via-gray-300 to-gray-500',
+          bgGradient: 'from-gray-50 to-slate-100 dark:from-gray-800/20 dark:to-slate-800/20',
+          borderColor: 'border-gray-200 dark:border-gray-600',
+          textColor: 'text-gray-600 dark:text-gray-400',
+          icon: <Medal className="w-4 h-4" />,
+          metallic: true
+        };
+      case 'Bronze':
+        return {
+          gradient: 'from-orange-300 via-amber-400 to-orange-600',
+          bgGradient: 'from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/20',
+          borderColor: 'border-orange-200 dark:border-orange-600',
+          textColor: 'text-orange-600 dark:text-orange-400',
+          icon: <Award className="w-4 h-4" />,
+          gradient: true
+        };
+      default:
+        return {
+          gradient: 'from-gray-300 to-gray-500',
+          bgGradient: 'from-gray-50 to-gray-100 dark:from-gray-800/20 dark:to-gray-700/20',
+          borderColor: 'border-gray-200 dark:border-gray-600',
+          textColor: 'text-gray-600 dark:text-gray-400',
+          icon: <Star className="w-4 h-4" />
+        };
     }
   };
 
@@ -133,6 +181,7 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ currentUser }) => {
   };
 
   const calculateTier = (earnings: number): LeaderboardPlayer['tier'] => {
+    if (earnings >= 2000000) return 'Master';
     if (earnings >= 1000000) return 'Diamond';
     if (earnings >= 500000) return 'Platinum';
     if (earnings >= 100000) return 'Gold';
@@ -145,20 +194,22 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ currentUser }) => {
     const names = [
       'Rajesh Kumar', 'Priya Sharma', 'Amit Patel', 'Sneha Gupta', 'Vikram Singh',
       'Anita Reddy', 'Rohit Mehta', 'Kavya Nair', 'Arjun Yadav', 'Deepika Joshi',
-      'Sanjay Agarwal', 'Meera Iyer', 'Karan Malhotra', 'Ritu Bansal', 'Nikhil Jain'
+      'Sanjay Agarwal', 'Meera Iyer', 'Karan Malhotra', 'Ritu Bansal', 'Nikhil Jain',
+      'Pooja Verma', 'Rahul Saxena', 'Divya Kapoor', 'Suresh Pandey', 'Nisha Agarwal'
     ];
     
     const categories = ['Weather', 'Cryptocurrency', 'Sports', 'Technology', 'Finance', 'Politics'];
     const achievements = ['First Win', 'Hot Streak', 'Big Winner', 'Consistent Player', 'Risk Taker', 'Safe Player'];
 
     for (let i = 0; i < 100; i++) {
-      const baseEarnings = Math.max(0, 2000000 - (i * 15000) + (Math.random() * 50000));
+      const baseEarnings = Math.max(0, 2500000 - (i * 18000) + (Math.random() * 60000));
       const totalBets = Math.floor(50 + Math.random() * 500);
       const totalWins = Math.floor(totalBets * (0.3 + Math.random() * 0.4));
       const totalLosses = totalBets - totalWins;
       const winRate = totalBets > 0 ? (totalWins / totalBets) * 100 : 0;
       const currentStreak = Math.floor(Math.random() * 15);
       const longestStreak = Math.max(currentStreak, Math.floor(Math.random() * 25));
+      const totalPoints = Math.floor(baseEarnings / 100 + totalWins * 50 + currentStreak * 100);
       
       mockPlayers.push({
         id: `player-${i + 1}`,
@@ -166,6 +217,7 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ currentUser }) => {
         rank: i + 1,
         previousRank: i > 0 ? i + 1 + Math.floor((Math.random() - 0.5) * 6) : undefined,
         totalEarnings: baseEarnings,
+        totalPoints,
         currentStreak,
         winRate,
         totalBets,
@@ -194,11 +246,9 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ currentUser }) => {
     const loadLeaderboard = async () => {
       setLoading(true);
       try {
-        // In a real app, this would fetch from the database
         const mockData = generateMockPlayers();
         setPlayers(mockData);
         
-        // Simulate rank changes animation
         setTimeout(() => {
           const changingRanks = new Set(mockData.slice(0, 10).map(p => p.id));
           setAnimatingRanks(changingRanks);
@@ -220,13 +270,16 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ currentUser }) => {
       case 'monthly': return b.monthlyEarnings - a.monthlyEarnings;
       case 'winRate': return b.winRate - a.winRate;
       case 'streak': return b.currentStreak - a.currentStreak;
-      default: return b.totalEarnings - a.totalEarnings;
+      default: return b.totalPoints - a.totalPoints;
     }
   });
 
   const filteredPlayers = sortedPlayers.filter(player =>
     player.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const top10Players = filteredPlayers.slice(0, 10);
+  const remainingPlayers = filteredPlayers.slice(10);
 
   const handlePlayerClick = (player: LeaderboardPlayer) => {
     setSelectedPlayer(player);
@@ -236,43 +289,52 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ currentUser }) => {
     }
   };
 
-  const PlayerCard: React.FC<{ player: LeaderboardPlayer; index: number }> = ({ player, index }) => {
+  // Top 10 Player Card Component
+  const TopPlayerCard: React.FC<{ player: LeaderboardPlayer; index: number }> = ({ player, index }) => {
     const isTop3 = player.rank <= 3;
     const isAnimating = animatingRanks.has(player.id);
+    const tierConfig = getTierConfig(player.tier);
     
     return (
       <div
         className={`relative group cursor-pointer transition-all duration-500 ${
-          isAnimating ? 'animate-pulse scale-105' : 'hover:scale-102'
-        } ${isTop3 ? 'transform hover:scale-105' : ''}`}
+          isAnimating ? 'animate-pulse scale-105' : 'hover:scale-105'
+        } ${isTop3 ? 'transform hover:scale-110' : ''}`}
         onClick={() => handlePlayerClick(player)}
       >
         <div className={`
-          relative overflow-hidden rounded-2xl border-2 transition-all duration-300
+          relative overflow-hidden rounded-2xl border-2 transition-all duration-300 shadow-xl
           ${isTop3 
-            ? `bg-gradient-to-br ${getTierColor(player.tier)} p-[2px] shadow-2xl` 
-            : 'bg-white/60 dark:bg-slate-800/60 backdrop-blur-sm border-slate-200/50 dark:border-slate-700/50 hover:shadow-xl'
+            ? `bg-gradient-to-br ${tierConfig.gradient} p-[3px] shadow-2xl` 
+            : `bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm ${tierConfig.borderColor} hover:shadow-2xl`
           }
         `}>
-          {isTop3 && (
-            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -skew-x-12 animate-pulse opacity-30"></div>
+          {/* Special Effects for Top Tiers */}
+          {tierConfig.aura && (
+            <div className="absolute inset-0 bg-gradient-to-r from-red-500/20 via-pink-500/20 to-purple-600/20 animate-pulse rounded-2xl"></div>
+          )}
+          {tierConfig.sparkle && (
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -skew-x-12 animate-pulse opacity-30"></div>
+          )}
+          {tierConfig.glow && (
+            <div className="absolute inset-0 bg-gradient-to-r from-gray-300/10 via-white/20 to-gray-300/10 animate-pulse rounded-2xl"></div>
           )}
           
           <div className={`
             relative p-6 rounded-2xl transition-all duration-300
             ${isTop3 
               ? 'bg-white dark:bg-slate-900' 
-              : 'bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm group-hover:bg-white/90 dark:group-hover:bg-slate-800/90'
+              : `${tierConfig.bgGradient} backdrop-blur-sm group-hover:bg-white/90 dark:group-hover:bg-slate-800/90`
             }
           `}>
             {/* Rank and Change */}
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
                 <div className={`
-                  relative flex items-center justify-center w-12 h-12 rounded-full font-bold text-lg
+                  relative flex items-center justify-center w-14 h-14 rounded-full font-bold text-xl
                   ${isTop3 
-                    ? `bg-gradient-to-br ${getTierColor(player.tier)} text-white shadow-lg` 
-                    : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
+                    ? `bg-gradient-to-br ${tierConfig.gradient} text-white shadow-lg` 
+                    : `bg-slate-100 dark:bg-slate-700 ${tierConfig.textColor}`
                   }
                 `}>
                   {getRankIcon(player.rank) || player.rank}
@@ -288,9 +350,9 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ currentUser }) => {
               <div className="flex items-center gap-2">
                 <div className={`
                   px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1
-                  bg-gradient-to-r ${getTierColor(player.tier)} text-white
+                  bg-gradient-to-r ${tierConfig.gradient} text-white shadow-md
                 `}>
-                  {getTierIcon(player.tier)}
+                  {tierConfig.icon}
                   {player.tier}
                 </div>
                 {player.isVerified && (
@@ -304,7 +366,7 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ currentUser }) => {
             {/* Profile Section */}
             <div className="flex items-center gap-4 mb-4">
               <div className="relative">
-                <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-xl">
+                <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-xl shadow-lg">
                   {player.name.split(' ').map(n => n[0]).join('')}
                 </div>
                 {player.currentStreak > 0 && (
@@ -334,31 +396,31 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ currentUser }) => {
               </div>
             </div>
 
-            {/* Earnings Display */}
+            {/* Points Display */}
             <div className="mb-4">
               <div className="text-3xl font-extrabold text-slate-900 dark:text-white mb-1">
-                {formatCurrency(player.totalEarnings)}
+                {player.totalPoints.toLocaleString()} pts
               </div>
               <div className="text-sm text-slate-600 dark:text-slate-400">
-                Total Earnings
+                {formatCurrency(player.totalEarnings)} earned
               </div>
             </div>
 
             {/* Stats Grid */}
             <div className="grid grid-cols-3 gap-3 mb-4">
-              <div className="text-center p-2 bg-slate-50/80 dark:bg-slate-700/80 rounded-lg">
+              <div className="text-center p-3 bg-slate-50/80 dark:bg-slate-700/80 rounded-lg">
                 <div className="text-lg font-bold text-slate-900 dark:text-white">
                   {player.currentStreak}
                 </div>
                 <div className="text-xs text-slate-600 dark:text-slate-400">Streak</div>
               </div>
-              <div className="text-center p-2 bg-slate-50/80 dark:bg-slate-700/80 rounded-lg">
+              <div className="text-center p-3 bg-slate-50/80 dark:bg-slate-700/80 rounded-lg">
                 <div className="text-lg font-bold text-slate-900 dark:text-white">
                   {player.totalWins}
                 </div>
                 <div className="text-xs text-slate-600 dark:text-slate-400">Wins</div>
               </div>
-              <div className="text-center p-2 bg-slate-50/80 dark:bg-slate-700/80 rounded-lg">
+              <div className="text-center p-3 bg-slate-50/80 dark:bg-slate-700/80 rounded-lg">
                 <div className="text-lg font-bold text-slate-900 dark:text-white">
                   {formatCurrency(player.highestWin)}
                 </div>
@@ -371,7 +433,7 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ currentUser }) => {
               <div className="mb-4">
                 <div className="flex justify-between text-xs text-slate-600 dark:text-slate-400 mb-1">
                   <span>Distance to Rank {player.rank - 1}</span>
-                  <span>{formatCurrency(player.distanceToNextRank)}</span>
+                  <span>{player.distanceToNextRank.toLocaleString()} pts</span>
                 </div>
                 <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2">
                   <div 
@@ -402,6 +464,79 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ currentUser }) => {
                 )}
               </div>
             )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Remaining Players Bar Component
+  const PlayerBar: React.FC<{ player: LeaderboardPlayer; index: number }> = ({ player, index }) => {
+    const tierConfig = getTierConfig(player.tier);
+    
+    return (
+      <div
+        className="group cursor-pointer transition-all duration-300 hover:scale-[1.02] hover:shadow-lg"
+        onClick={() => handlePlayerClick(player)}
+      >
+        <div className={`
+          flex items-center gap-4 p-4 rounded-xl border transition-all duration-300
+          bg-white/60 dark:bg-slate-800/60 backdrop-blur-sm ${tierConfig.borderColor}
+          hover:bg-white/80 dark:hover:bg-slate-800/80 hover:shadow-md
+        `}>
+          {/* Rank */}
+          <div className="flex items-center gap-2 min-w-[60px]">
+            <div className={`
+              w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm
+              ${tierConfig.bgGradient} ${tierConfig.textColor}
+            `}>
+              {player.rank}
+            </div>
+            {getRankChange(player)}
+          </div>
+
+          {/* Avatar */}
+          <div className="relative">
+            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-sm">
+              {player.name.split(' ').map(n => n[0]).join('')}
+            </div>
+            {player.currentStreak > 0 && (
+              <div className="absolute -top-1 -right-1 w-4 h-4 bg-orange-500 rounded-full flex items-center justify-center">
+                <Flame className="w-2 h-2 text-white" />
+              </div>
+            )}
+          </div>
+
+          {/* Name and Tier */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <h4 className="font-semibold text-slate-900 dark:text-white truncate">
+                {player.name}
+              </h4>
+              {player.isVerified && (
+                <Star className="w-3 h-3 text-blue-500" />
+              )}
+              <div className={`
+                px-2 py-0.5 rounded-full text-xs font-medium flex items-center gap-1
+                bg-gradient-to-r ${tierConfig.gradient} text-white
+              `}>
+                {tierConfig.icon}
+                {player.tier}
+              </div>
+            </div>
+            <div className="text-xs text-slate-600 dark:text-slate-400">
+              {player.winRate.toFixed(1)}% win rate • {player.currentStreak} streak
+            </div>
+          </div>
+
+          {/* Points */}
+          <div className="text-right min-w-[120px]">
+            <div className="font-bold text-slate-900 dark:text-white">
+              {player.totalPoints.toLocaleString()} pts
+            </div>
+            <div className="text-xs text-slate-600 dark:text-slate-400">
+              {formatCurrency(player.totalEarnings)}
+            </div>
           </div>
         </div>
       </div>
@@ -491,7 +626,7 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ currentUser }) => {
                 onChange={(e) => setSortBy(e.target.value as any)}
                 className="px-4 py-3 border border-slate-300/60 dark:border-slate-600/60 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/80 dark:bg-slate-700/80 backdrop-blur-sm text-slate-900 dark:text-white"
               >
-                <option value="earnings">All-time Earnings</option>
+                <option value="earnings">All-time Points</option>
                 <option value="weekly">Weekly Performance</option>
                 <option value="monthly">Monthly Performance</option>
                 <option value="winRate">Highest Win Rate</option>
@@ -501,12 +636,43 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ currentUser }) => {
           </div>
         </div>
 
-        {/* Leaderboard Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {filteredPlayers.map((player, index) => (
-            <PlayerCard key={player.id} player={player} index={index} />
-          ))}
+        {/* Top 10 Players Section */}
+        <div className="mb-12">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-8 h-8 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-lg flex items-center justify-center">
+              <Crown className="w-5 h-5 text-white" />
+            </div>
+            <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
+              Top 10 Champions
+            </h2>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
+            {top10Players.map((player, index) => (
+              <TopPlayerCard key={player.id} player={player} index={index} />
+            ))}
+          </div>
         </div>
+
+        {/* Remaining Players Section */}
+        {remainingPlayers.length > 0 && (
+          <div>
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
+                <Users className="w-5 h-5 text-white" />
+              </div>
+              <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
+                Rising Stars (Ranks 11-100)
+              </h2>
+            </div>
+            
+            <div className="space-y-2 max-h-[600px] overflow-y-auto pr-2">
+              {remainingPlayers.map((player, index) => (
+                <PlayerBar key={player.id} player={player} index={index} />
+              ))}
+            </div>
+          </div>
+        )}
 
         {filteredPlayers.length === 0 && (
           <div className="text-center py-12">
@@ -545,9 +711,9 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ currentUser }) => {
                       </span>
                       <span className={`
                         px-3 py-1 rounded-full text-sm font-semibold flex items-center gap-1
-                        bg-gradient-to-r ${getTierColor(selectedPlayer.tier)} text-white
+                        bg-gradient-to-r ${getTierConfig(selectedPlayer.tier).gradient} text-white
                       `}>
-                        {getTierIcon(selectedPlayer.tier)}
+                        {getTierConfig(selectedPlayer.tier).icon}
                         {selectedPlayer.tier}
                       </span>
                     </div>
@@ -575,8 +741,8 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ currentUser }) => {
               {/* Detailed Stats */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
                 <div className="bg-gradient-to-br from-green-500 to-emerald-600 text-white p-6 rounded-xl">
-                  <div className="text-3xl font-bold">{formatCurrency(selectedPlayer.totalEarnings)}</div>
-                  <div className="text-green-100">Total Earnings</div>
+                  <div className="text-3xl font-bold">{selectedPlayer.totalPoints.toLocaleString()}</div>
+                  <div className="text-green-100">Total Points</div>
                 </div>
                 <div className="bg-gradient-to-br from-blue-500 to-cyan-600 text-white p-6 rounded-xl">
                   <div className="text-3xl font-bold">{selectedPlayer.winRate.toFixed(1)}%</div>
@@ -597,6 +763,10 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ currentUser }) => {
                 <div>
                   <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-4">Performance Stats</h3>
                   <div className="space-y-4">
+                    <div className="flex justify-between">
+                      <span className="text-slate-600 dark:text-slate-400">Total Earnings</span>
+                      <span className="font-semibold text-slate-900 dark:text-white">{formatCurrency(selectedPlayer.totalEarnings)}</span>
+                    </div>
                     <div className="flex justify-between">
                       <span className="text-slate-600 dark:text-slate-400">Total Bets</span>
                       <span className="font-semibold text-slate-900 dark:text-white">{selectedPlayer.totalBets}</span>
