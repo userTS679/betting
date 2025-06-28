@@ -48,9 +48,27 @@ function AppContent() {
     eventTitle: string;
     streak: number;
   } | null>(null);
-  const [pendingWins, setPendingWins] = useState<string[]>([]);
+
+  // Track shown wins using localStorage to persist across sessions
+  const [shownWins, setShownWins] = useState<Set<string>>(() => {
+    try {
+      const stored = localStorage.getItem('shownWins');
+      return stored ? new Set(JSON.parse(stored)) : new Set();
+    } catch {
+      return new Set();
+    }
+  });
 
   const categories = ['All', 'Weather', 'Cryptocurrency', 'Sports', 'Technology', 'Finance', 'Politics', 'Entertainment'];
+
+  // Save shown wins to localStorage whenever it changes
+  useEffect(() => {
+    try {
+      localStorage.setItem('shownWins', JSON.stringify(Array.from(shownWins)));
+    } catch (error) {
+      console.error('Failed to save shown wins to localStorage:', error);
+    }
+  }, [shownWins]);
 
   const handleUserProfile = async (user: any) => {
     try {
@@ -145,33 +163,49 @@ function AppContent() {
 
   const checkForNewWins = async (bets: Bet[]) => {
     if (!currentUser) return;
-    const wonBets = bets.filter(bet => bet.status === 'won');
-    const newWins = wonBets.filter(bet => !pendingWins.includes(bet.id));
-    if (newWins.length > 0) {
-      const resolvedBets = bets
-        .filter(bet => bet.status === 'won' || bet.status === 'lost')
-        .sort((a, b) => b.placedAt.getTime() - a.placedAt.getTime());
-      let currentStreak = 0;
-      for (const bet of resolvedBets) {
-        if (bet.status === 'won') {
-          currentStreak++;
-        } else {
-          break;
-        }
-      }
-      const latestWin = newWins[0];
-      if (latestWin.payout) {
-        const event = events.find(e => e.id === latestWin.eventId);
-        const eventTitle = event?.title || 'Event';
-        setWinningAnimationData({
-          winAmount: latestWin.payout,
-          eventTitle,
-          streak: currentStreak
-        });
-        setShowWinningAnimation(true);
-        setPendingWins(prev => [...prev, ...newWins.map(bet => bet.id)]);
+    
+    // Only check for wins that haven't been shown before
+    const wonBets = bets.filter(bet => 
+      bet.status === 'won' && 
+      bet.payout && 
+      bet.payout > 0 && 
+      !shownWins.has(bet.id)
+    );
+
+    if (wonBets.length === 0) return;
+
+    // Calculate current streak from all resolved bets
+    const resolvedBets = bets
+      .filter(bet => bet.status === 'won' || bet.status === 'lost')
+      .sort((a, b) => b.placedAt.getTime() - a.placedAt.getTime());
+    
+    let currentStreak = 0;
+    for (const bet of resolvedBets) {
+      if (bet.status === 'won') {
+        currentStreak++;
+      } else {
+        break;
       }
     }
+
+    // Show animation for the most recent win
+    const latestWin = wonBets.sort((a, b) => b.placedAt.getTime() - a.placedAt.getTime())[0];
+    const event = events.find(e => e.id === latestWin.eventId);
+    const eventTitle = event?.title || 'Event';
+
+    setWinningAnimationData({
+      winAmount: latestWin.payout!,
+      eventTitle,
+      streak: currentStreak
+    });
+    setShowWinningAnimation(true);
+
+    // Mark all new wins as shown
+    setShownWins(prev => {
+      const newShownWins = new Set(prev);
+      wonBets.forEach(bet => newShownWins.add(bet.id));
+      return newShownWins;
+    });
   };
 
   const loadTransactions = async (userId: string) => {
@@ -271,7 +305,9 @@ function AppContent() {
       setEvents([]);
       setUserBets([]);
       setTransactions([]);
-      setPendingWins([]);
+      // Clear shown wins when signing out
+      setShownWins(new Set());
+      localStorage.removeItem('shownWins');
     } catch (error) {}
   };
 
