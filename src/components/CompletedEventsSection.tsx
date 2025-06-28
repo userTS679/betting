@@ -78,7 +78,7 @@ export const CompletedEventsSection: React.FC<CompletedEventsSectionProps> = ({
   }
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl overflow-hidden transition-colors duration-300">
+    <div className="bg-white/60 dark:bg-slate-800/60 backdrop-blur-sm rounded-2xl shadow-xl border border-slate-200/50 dark:border-slate-700/50 overflow-hidden transition-colors duration-300">
       {/* Header with gradient background */}
       <div className="bg-gradient-to-r from-purple-700 via-blue-700 to-indigo-700 p-8 text-white">
         <div className="flex flex-col md:flex-row gap-6 items-start md:items-center justify-between">
@@ -89,7 +89,7 @@ export const CompletedEventsSection: React.FC<CompletedEventsSectionProps> = ({
             <div>
               <h2 className="text-3xl font-extrabold tracking-tight">Completed Events</h2>
               {/* Motivational message */}
-              <div className="mt-3 flex items-center gap-2 bg-white/10 rounded-lg px-5 py-2 shadow">
+              <div className="mt-3 flex items-center gap-2 bg-white/10 backdrop-blur-sm rounded-lg px-5 py-2 shadow">
                 <TrendingUp className="w-6 h-6 text-green-200" />
                 <span className="text-base text-green-100 font-semibold">
                   You're on a winning streak! Keep the momentum going – check out the active events! 🚀
@@ -109,8 +109,6 @@ export const CompletedEventsSection: React.FC<CompletedEventsSectionProps> = ({
             </div>
           )}
         </div>
-        {/* Stats bar */}
-        
       </div>
 
       <div className="p-8">
@@ -118,20 +116,20 @@ export const CompletedEventsSection: React.FC<CompletedEventsSectionProps> = ({
         <div className="flex flex-col md:flex-row gap-4 mb-8">
           <div className="flex-1">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 w-5 h-5" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 dark:text-slate-500 w-5 h-5" />
               <input
                 type="text"
                 placeholder="Search completed events..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-900 dark:text-white bg-white dark:bg-gray-700"
+                className="w-full pl-10 pr-4 py-2 border border-slate-300/60 dark:border-slate-600/60 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-slate-900 dark:text-white bg-white/80 dark:bg-slate-700/80 backdrop-blur-sm"
               />
             </div>
           </div>
           <select
             value={filterType}
             onChange={(e) => setFilterType(e.target.value as any)}
-            className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-900 dark:text-white bg-white dark:bg-gray-700"
+            className="px-4 py-2 border border-slate-300/60 dark:border-slate-600/60 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-slate-900 dark:text-white bg-white/80 dark:bg-slate-700/80 backdrop-blur-sm"
           >
             <option value="all">All Events</option>
             <option value="won">🏆 Events I Won</option>
@@ -159,12 +157,12 @@ export const CompletedEventsSection: React.FC<CompletedEventsSectionProps> = ({
             return (
               <div
                 key={event.id}
-                className={`relative rounded-2xl shadow-lg border-2 overflow-hidden transition-all duration-300 hover:shadow-xl ${
+                className={`relative rounded-2xl shadow-lg border-2 overflow-hidden transition-all duration-300 hover:shadow-xl backdrop-blur-sm ${
                   hasNoBet
-                    ? 'bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600'
+                    ? 'bg-slate-50/80 dark:bg-slate-700/80 border-slate-200/60 dark:border-slate-600/60'
                     : isWinner
-                    ? 'bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border-green-300 dark:border-green-600 shadow-green-100 dark:shadow-green-900/20'
-                    : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600'
+                    ? 'bg-gradient-to-br from-green-50/80 to-emerald-50/80 dark:from-green-900/20 dark:to-emerald-900/20 border-green-300/60 dark:border-green-600/60 shadow-green-100/50 dark:shadow-green-900/20'
+                    : 'bg-white/80 dark:bg-slate-800/80 border-slate-200/60 dark:border-slate-600/60'
                 }`}
                 style={{ cursor: 'default' }}
               >
@@ -193,8 +191,8 @@ export const CompletedEventsSection: React.FC<CompletedEventsSectionProps> = ({
                         <span
                           className={`px-2 py-1 rounded-full text-xs font-medium ${
                             isWinner
-                              ? 'bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-300'
-                              : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300'
+                              ? 'bg-green-100/80 dark:bg-green-900/30 text-green-800 dark:text-green-300'
+                              : 'bg-slate-100/80 dark:bg-slate-700/80 text-slate-800 dark:text-slate-300'
                           }`}
                         >
                           {isWinner ? '🏆 WON' : 'LOST'}
@@ -204,7 +202,7 @@ export const CompletedEventsSection: React.FC<CompletedEventsSectionProps> = ({
                   </div>
 
                   {/* Title */}
-                  <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-3 line-clamp-2 leading-tight">
+                  <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-3 line-clamp-2 leading-tight">
                     {event.title}
                   </h3>
 
@@ -214,7 +212,7 @@ export const CompletedEventsSection: React.FC<CompletedEventsSectionProps> = ({
     isWinner
       ? 'bg-gradient-to-r from-green-500 via-emerald-500 to-teal-500'
       : hasNoBet
-      ? 'bg-gradient-to-r from-gray-400 to-gray-500'
+      ? 'bg-gradient-to-r from-slate-400 to-slate-500'
       : 'bg-gradient-to-r from-blue-500 to-indigo-500'
   }`}
 >
@@ -224,7 +222,7 @@ export const CompletedEventsSection: React.FC<CompletedEventsSectionProps> = ({
         isWinner
           ? 'text-green-100'
           : hasNoBet
-          ? 'text-gray-200'
+          ? 'text-slate-200'
           : 'text-blue-100'
       }`}
       style={{
@@ -242,13 +240,6 @@ export const CompletedEventsSection: React.FC<CompletedEventsSectionProps> = ({
           : formatCurrency(0)
         : formatCurrency(0)}
     </div>
-    {/* <div className="text-lg font-medium mt-2 opacity-90 text-white text-center">
-      {userBet
-        ? isWinner
-          ? 'Your Profit'
-          : 'No Profit'
-        : 'No Bet'}
-    </div> */}
     {isWinner && (
       <div className="mt-2 text-green-50 text-base font-semibold text-center">
         🎉 Amazing! Keep up the winning streak!
@@ -259,10 +250,10 @@ export const CompletedEventsSection: React.FC<CompletedEventsSectionProps> = ({
                   {/* User's Bet Result */}
                   {userBet ? (
                     <div
-                      className={`rounded-xl p-4 border-2 relative overflow-hidden ${
+                      className={`rounded-xl p-4 border-2 relative overflow-hidden backdrop-blur-sm ${
                         isWinner
-                          ? 'border-green-300 dark:border-green-600 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20'
-                          : 'border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700'
+                          ? 'border-green-300/60 dark:border-green-600/60 bg-gradient-to-br from-green-50/80 to-emerald-50/80 dark:from-green-900/20 dark:to-emerald-900/20'
+                          : 'border-slate-300/60 dark:border-slate-600/60 bg-slate-50/80 dark:bg-slate-700/80'
                       }`}
                     >
                       {isWinner && (
@@ -283,11 +274,11 @@ export const CompletedEventsSection: React.FC<CompletedEventsSectionProps> = ({
                       )}
                     </div>
                   ) : (
-                    <div className="bg-gray-100 dark:bg-gray-700 rounded-xl p-4 text-center border border-gray-200 dark:border-gray-600">
-                      <div className="text-gray-600 dark:text-gray-400 text-sm mb-2">
+                    <div className="bg-slate-100/80 dark:bg-slate-700/80 backdrop-blur-sm rounded-xl p-4 text-center border border-slate-200/60 dark:border-slate-600/60">
+                      <div className="text-slate-600 dark:text-slate-400 text-sm mb-2">
                         You didn't place a bet on this event
                       </div>
-                      <div className="text-xs text-gray-500 dark:text-gray-500">
+                      <div className="text-xs text-slate-500 dark:text-slate-500">
                         Don't miss out on future opportunities!
                       </div>
                     </div>
@@ -295,7 +286,7 @@ export const CompletedEventsSection: React.FC<CompletedEventsSectionProps> = ({
                   <div className="my-4" />
 
                   {/* Result */}
-                  <div className="bg-purple-50 dark:bg-purple-900/20 rounded-xl p-4 mb-4 border border-purple-200 dark:border-purple-700">
+                  <div className="bg-purple-50/80 dark:bg-purple-900/20 backdrop-blur-sm rounded-xl p-4 mb-4 border border-purple-200/60 dark:border-purple-700/60">
                     <div className="flex items-center gap-2 mb-2">
                       <Trophy className="w-5 h-5 text-purple-600 dark:text-purple-400" />
                       <span className="font-semibold text-purple-900 dark:text-purple-300">Winning Result</span>
@@ -306,7 +297,7 @@ export const CompletedEventsSection: React.FC<CompletedEventsSectionProps> = ({
                   </div>
 
                   {/* Event Stats */}
-                  <div className="flex justify-between items-center gap-3 mt-4 text-sm text-gray-600 dark:text-gray-400">
+                  <div className="flex justify-between items-center gap-3 mt-4 text-sm text-slate-600 dark:text-slate-400">
                     <div className="flex items-center gap-2">
                       <Clock className="w-4 h-4" />
                       <span>Resolved {event.expiresAt.toLocaleDateString()}</span>
@@ -324,9 +315,9 @@ export const CompletedEventsSection: React.FC<CompletedEventsSectionProps> = ({
 
         {filteredEvents.length === 0 && (
           <div className="text-center py-12">
-            <div className="text-gray-400 dark:text-gray-500 text-6xl mb-4">🏆</div>
-            <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">No completed events found</h3>
-            <p className="text-gray-600 dark:text-gray-400">
+            <div className="text-slate-400 dark:text-slate-500 text-6xl mb-4">🏆</div>
+            <h3 className="text-xl font-semibold text-slate-900 dark:text-white mb-2">No completed events found</h3>
+            <p className="text-slate-600 dark:text-slate-400">
               {searchTerm || filterType !== 'all'
                 ? 'Try adjusting your search or filters'
                 : 'Completed events will appear here once results are declared'}
