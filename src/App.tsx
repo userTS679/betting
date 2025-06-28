@@ -11,6 +11,7 @@ import { AdminDashboard } from './components/admin/AdminDashboard';
 import { AuthPage } from './components/auth/AuthPage';
 import { WinningAnimation } from './components/WinningAnimation';
 import { CompletedEventsSection } from './components/CompletedEventsSection';
+import { Leaderboard } from './components/Leaderboard';
 import { ThemeToggle } from './components/ThemeToggle';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { getCurrentUser, onAuthStateChange, signOut, getUserProfile, createUserProfile } from './services/auth';
@@ -36,7 +37,7 @@ function AppContent() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [sortBy, setSortBy] = useState<'newest' | 'popular' | 'ending'>('newest');
-  const [currentView, setCurrentView] = useState<'events' | 'payments' | 'admin'>('events');
+  const [currentView, setCurrentView] = useState<'events' | 'payments' | 'leaderboard' | 'admin'>('events');
 
   // Tabs for events
   const [eventsTab, setEventsTab] = useState<'active' | 'completed'>('active');
@@ -525,6 +526,17 @@ function AppContent() {
                   Events
                 </button>
                 <button
+                  onClick={() => setCurrentView('leaderboard')}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
+                    currentView === 'leaderboard'
+                      ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                  }`}
+                >
+                  <TrendingUp className="w-4 h-4" />
+                  Leaderboard
+                </button>
+                <button
                   onClick={() => setCurrentView('payments')}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
                     currentView === 'payments'
@@ -573,7 +585,9 @@ function AppContent() {
         </div>
       </header>
 
-      {currentView === 'admin' && currentUser.isAdmin ? (
+      {currentView === 'leaderboard' ? (
+        <Leaderboard currentUser={currentUser} />
+      ) : currentView === 'admin' && currentUser.isAdmin ? (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <AdminDashboard
             events={events}
