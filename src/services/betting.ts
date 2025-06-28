@@ -1,5 +1,6 @@
 /**
  * Betting service with accurate return calculations and 15% house edge
+ * Fixed to use 85% of total pool for odds calculations
  */
 import { supabase } from '../lib/supabase';
 import { Event, BetOption, Bet } from '../types';
@@ -12,18 +13,25 @@ export interface BetCalculation {
   effectiveOdds: number;
   maxBetAmount: number;
   houseEdge: number;
+  availablePool: number; // 85% of total pool
 }
 
 /**
- * Calculate dynamic odds based on pool distribution
- * Formula: odds = (total_pool - option_pool) / option_pool + 1
+ * Calculate dynamic odds based on 85% pool distribution (after house edge)
+ * Formula: odds = (available_pool - option_pool) / option_pool + 1
  * This ensures that less popular options have higher odds
  */
 const calculateDynamicOdds = (totalPool: number, optionPool: number): number => {
-  if (optionPool === 0) return 2.0; // Default odds for new options
-  if (totalPool === optionPool) return 1.0; // Only this option has bets
+  if (totalPool === 0 || optionPool === 0) return 2.0; // Default odds for new options
   
-  const otherOptionsPool = totalPool - optionPool;
+  // Use 85% of total pool (after 15% house edge)
+  const availablePool = totalPool * 0.85;
+  
+  if (availablePool === optionPool) return 1.1; // Minimum odds when only this option has bets
+  
+  const otherOptionsPool = availablePool - optionPool;
+  if (otherOptionsPool <= 0) return 1.1; // Safety check
+  
   const odds = (otherOptionsPool / optionPool) + 1;
   
   // Ensure minimum odds of 1.1 and maximum of 50
@@ -31,7 +39,7 @@ const calculateDynamicOdds = (totalPool: number, optionPool: number): number => 
 };
 
 /**
- * Calculate potential returns for a bet with your specified rules
+ * Calculate potential returns for a bet with corrected 85% pool formula
  */
 export const calculateBetReturns = (
   event: Event,
@@ -47,6 +55,9 @@ export const calculateBetReturns = (
   const houseEdge = 0.15; // 15% house edge
   const currentTotalPool = event.totalPool;
   
+  // Calculate available pool (85% of total)
+  const availablePool = currentTotalPool * 0.85;
+  
   // Calculate maximum bet amount (20% of total pool, unlimited for admin)
   const maxBetAmount = isAdmin ? Infinity : Math.max(100, currentTotalPool * 0.20);
   
@@ -57,12 +68,13 @@ export const calculateBetReturns = (
   // New pool sizes after this bet
   const newTotalPool = currentTotalPool + betAmount;
   const newOptionPool = option.totalBets + betAmount;
+  const newAvailablePool = newTotalPool * 0.85;
   
-  // Calculate dynamic odds for this option after the bet
+  // Calculate dynamic odds for this option after the bet using 85% pool
   const effectiveOdds = calculateDynamicOdds(newTotalPool, newOptionPool);
   
-  // Calculate potential return using your formula:
-  // User gets: bet_amount * odds (from the pool after house cut)
+  // Calculate potential return using corrected formula:
+  // User gets: bet_amount * odds (from the 85% pool after house cut)
   const potentialReturn = betAmount * effectiveOdds;
   
   // Ensure minimum return (user gets at least their bet back)
@@ -81,7 +93,8 @@ export const calculateBetReturns = (
     poolShare: Math.round(poolShare * 10000) / 100, // Percentage
     effectiveOdds: Math.round(finalOdds * 100) / 100,
     maxBetAmount: isAdmin ? Infinity : Math.round(maxBetAmount),
-    houseEdge: houseEdge * 100 // Percentage
+    houseEdge: houseEdge * 100, // Percentage
+    availablePool: Math.round(newAvailablePool * 100) / 100
   };
 };
 
@@ -174,7 +187,7 @@ export const placeBet = async (
 };
 
 /**
- * Update dynamic odds for all options in an event
+ * Update dynamic odds for all options in an event using 85% pool calculation
  */
 const updateDynamicOdds = async (eventId: string) => {
   try {
@@ -185,26 +198,46 @@ const updateDynamicOdds = async (eventId: string) => {
       .eq('id', eventId)
       .single();
 
-    if (eventError) return;
+    if (eventError) {
+      console.error('Error fetching event for odds update:', eventError);
+      return;
+    }
 
     const { data: options, error: optionsError } = await supabase
       .from('bet_options')
       .select('id, total_bets')
       .eq('event_id', eventId);
 
-    if (optionsError || !options) return;
+    if (optionsError || !options) {
+      console.error('Error fetching options for odds update:', optionsError);
+      return;
+    }
 
-    // Update odds for each option
+    console.log(`[updateDynamicOdds] Updating odds for event ${eventId}:`, {
+      totalPool: eventData.total_pool,
+      availablePool: eventData.total_pool * 0.85,
+      optionsCount: options.length
+    });
+
+    // Update odds for each option using 85% pool calculation
     for (const option of options) {
       const newOdds = calculateDynamicOdds(eventData.total_pool, option.total_bets);
       
-      await supabase
+      console.log(`[updateDynamicOdds] Option ${option.id}: pool=${option.total_bets}, odds=${newOdds.toFixed(2)}`);
+      
+      const { error: updateError } = await supabase
         .from('bet_options')
         .update({ odds: newOdds })
         .eq('id', option.id);
+
+      if (updateError) {
+        console.error(`Error updating odds for option ${option.id}:`, updateError);
+      }
     }
+
+    console.log(`[updateDynamicOdds] Successfully updated odds for ${options.length} options`);
   } catch (error) {
-    console.error('Error updating dynamic odds:', error);
+    console.error('Exception in updateDynamicOdds:', error);
   }
 };
 
@@ -216,49 +249,83 @@ const updateEventStatistics = async (
   optionId: string,
   betAmount: number
 ) => {
-  // Get current event statistics
-  const { data: event, error: eventFetchError } = await supabase
-    .from('events')
-    .select('total_pool, participant_count')
-    .eq('id', eventId)
-    .single();
+  try {
+    // Get current event statistics
+    const { data: event, error: eventFetchError } = await supabase
+      .from('events')
+      .select('total_pool, participant_count')
+      .eq('id', eventId)
+      .single();
 
-  if (eventFetchError) throw new Error('Failed to fetch event statistics');
+    if (eventFetchError) throw new Error('Failed to fetch event statistics');
 
-  // Update event statistics
-  const { error: eventError } = await supabase
-    .from('events')
-    .update({
-      total_pool: event.total_pool + betAmount,
-      participant_count: event.participant_count + 1
-    })
-    .eq('id', eventId);
+    // Update event statistics
+    const { error: eventError } = await supabase
+      .from('events')
+      .update({
+        total_pool: event.total_pool + betAmount,
+        participant_count: event.participant_count + 1
+      })
+      .eq('id', eventId);
 
-  if (eventError) throw new Error('Failed to update event statistics');
+    if (eventError) throw new Error('Failed to update event statistics');
 
-  // Get current option statistics
-  const { data: option, error: optionFetchError } = await supabase
-    .from('bet_options')
-    .select('total_bets, bettors')
-    .eq('id', optionId)
-    .single();
+    // Get current option statistics
+    const { data: option, error: optionFetchError } = await supabase
+      .from('bet_options')
+      .select('total_bets, bettors')
+      .eq('id', optionId)
+      .single();
 
-  if (optionFetchError) throw new Error('Failed to fetch option statistics');
+    if (optionFetchError) throw new Error('Failed to fetch option statistics');
 
-  // Update option statistics
-  const { error: optionError } = await supabase
-    .from('bet_options')
-    .update({
-      total_bets: option.total_bets + betAmount,
-      bettors: option.bettors + 1
-    })
-    .eq('id', optionId);
+    // Update option statistics
+    const { error: optionError } = await supabase
+      .from('bet_options')
+      .update({
+        total_bets: option.total_bets + betAmount,
+        bettors: option.bettors + 1
+      })
+      .eq('id', optionId);
 
-  if (optionError) throw new Error('Failed to update option statistics');
+    if (optionError) throw new Error('Failed to update option statistics');
+
+    console.log(`[updateEventStatistics] Updated event ${eventId} and option ${optionId}:`, {
+      newTotalPool: event.total_pool + betAmount,
+      newOptionPool: option.total_bets + betAmount,
+      availablePool: (event.total_pool + betAmount) * 0.85
+    });
+  } catch (error) {
+    console.error('Exception in updateEventStatistics:', error);
+    throw error;
+  }
 };
 
 /**
- * Resolve a bet when event concludes with your specified payout formula
+ * Get real-time odds for an event (for dashboard updates)
+ */
+export const getRealTimeOdds = async (eventId: string): Promise<BetOption[]> => {
+  try {
+    const { data: options, error } = await supabase
+      .from('bet_options')
+      .select('*')
+      .eq('event_id', eventId)
+      .order('created_at');
+
+    if (error) {
+      console.error('Error fetching real-time odds:', error);
+      throw new Error(`Failed to fetch odds: ${error.message}`);
+    }
+
+    return options || [];
+  } catch (error) {
+    console.error('Exception in getRealTimeOdds:', error);
+    throw error;
+  }
+};
+
+/**
+ * Resolve a bet when event concludes with corrected payout formula
  */
 export const resolveBet = async (
   betId: string,
@@ -423,4 +490,44 @@ export const getBettingHistory = async (eventId: string) => {
   if (error) throw new Error('Failed to fetch betting history');
 
   return bets || [];
+};
+
+/**
+ * Subscribe to real-time odds updates for an event
+ */
+export const subscribeToOddsUpdates = (
+  eventId: string,
+  callback: (options: BetOption[]) => void
+) => {
+  const subscription = supabase
+    .channel(`odds-${eventId}`)
+    .on(
+      'postgres_changes',
+      {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'bet_options',
+        filter: `event_id=eq.${eventId}`
+      },
+      async () => {
+        try {
+          const options = await getRealTimeOdds(eventId);
+          callback(options);
+        } catch (error) {
+          console.error('Error in odds subscription callback:', error);
+        }
+      }
+    )
+    .subscribe();
+
+  return subscription;
+};
+
+/**
+ * Unsubscribe from real-time odds updates
+ */
+export const unsubscribeFromOddsUpdates = (subscription: any) => {
+  if (subscription) {
+    supabase.removeChannel(subscription);
+  }
 };

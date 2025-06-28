@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Clock, Users, Trophy, XCircle, CheckCircle } from 'lucide-react';
 import { Event } from '../types';
+import { getRealTimeOdds, subscribeToOddsUpdates, unsubscribeFromOddsUpdates } from '../services/betting';
 
 interface EventCardProps {
   event: Event;
@@ -15,9 +16,42 @@ interface EventCardProps {
 }
 
 export const EventCard: React.FC<EventCardProps> = ({ event, isAdmin = false, userBet, onBet }) => {
-  const timeLeft = Math.max(0, event.expiresAt.getTime() - Date.now());
+  const [currentEvent, setCurrentEvent] = useState(event);
+  const [isUpdatingOdds, setIsUpdatingOdds] = useState(false);
+
+  const timeLeft = Math.max(0, currentEvent.expiresAt.getTime() - Date.now());
   const hoursLeft = Math.floor(timeLeft / (1000 * 60 * 60));
   const minutesLeft = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
+
+  // Subscribe to real-time odds updates
+  useEffect(() => {
+    if (currentEvent.status === 'active') {
+      const subscription = subscribeToOddsUpdates(currentEvent.id, (updatedOptions) => {
+        console.log(`[EventCard] Received odds update for event ${currentEvent.id}:`, updatedOptions);
+        setCurrentEvent(prev => ({
+          ...prev,
+          options: updatedOptions.map(opt => ({
+            id: opt.id,
+            label: opt.label,
+            odds: opt.odds,
+            totalBets: opt.total_bets || 0,
+            bettors: opt.bettors || 0
+          }))
+        }));
+        setIsUpdatingOdds(true);
+        setTimeout(() => setIsUpdatingOdds(false), 500); // Flash effect
+      });
+
+      return () => {
+        unsubscribeFromOddsUpdates(subscription);
+      };
+    }
+  }, [currentEvent.id, currentEvent.status]);
+
+  // Update event when prop changes
+  useEffect(() => {
+    setCurrentEvent(event);
+  }, [event]);
 
   const getCategoryColor = (category: string) => {
     const colors = {
@@ -42,19 +76,19 @@ export const EventCard: React.FC<EventCardProps> = ({ event, isAdmin = false, us
 
   const getUserBetOption = () => {
     if (!userBet) return null;
-    return event.options.find(opt => opt.id === userBet.optionId);
+    return currentEvent.options.find(opt => opt.id === userBet.optionId);
   };
 
   const userBetOption = getUserBetOption();
 
   // Determine if user won or lost based on event resolution
   const getUserBetResult = () => {
-    if (!userBet || event.status !== 'resolved' || !event.winningOption) {
+    if (!userBet || currentEvent.status !== 'resolved' || !currentEvent.winningOption) {
       return userBet?.status || null;
     }
     
     // If event is resolved, determine win/loss based on winning option
-    if (userBet.optionId === event.winningOption) {
+    if (userBet.optionId === currentEvent.winningOption) {
       return 'won';
     } else {
       return 'lost';
@@ -64,10 +98,10 @@ export const EventCard: React.FC<EventCardProps> = ({ event, isAdmin = false, us
   const userBetResult = getUserBetResult();
 
   const getResultDisplay = () => {
-    if (!userBet || event.status !== 'resolved') return null;
+    if (!userBet || currentEvent.status !== 'resolved') return null;
 
     const isWinner = userBetResult === 'won';
-    const winningOption = event.options.find(opt => opt.id === event.winningOption);
+    const winningOption = currentEvent.options.find(opt => opt.id === currentEvent.winningOption);
 
     return (
       <div className={`mt-4 p-4 rounded-lg border-2 ${
@@ -130,36 +164,39 @@ export const EventCard: React.FC<EventCardProps> = ({ event, isAdmin = false, us
 
   const getBorderStyling = () => {
     if (!userBet) return "border-gray-100 dark:border-gray-700";
-    if (event.status === 'resolved') {
+    if (currentEvent.status === 'resolved') {
       if (userBetResult === 'won') return "border-green-200 dark:border-green-700";
       if (userBetResult === 'lost') return "border-gray-200 dark:border-gray-600"; // Clean gray border instead of faded
     }
     return "border-gray-100 dark:border-gray-700";
   };
 
+  // Calculate available pool (85% of total)
+  const availablePool = currentEvent.totalPool * 0.85;
+
   return (
     <div className={`${getCardStyling()} rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden border ${getBorderStyling()} max-w-sm`}>
       <div className="p-5">
         <div className="flex items-center justify-between mb-3">
-          <span className={`px-3 py-1 rounded-full text-xs font-semibold text-white ${getCategoryColor(event.category)}`}>
-            {event.category}
+          <span className={`px-3 py-1 rounded-full text-xs font-semibold text-white ${getCategoryColor(currentEvent.category)}`}>
+            {currentEvent.category}
           </span>
           <div className="flex items-center gap-2">
             <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-              event.status === 'active' ? 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-300' : 
-              event.status === 'closed' ? 'bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-300' : 
+              currentEvent.status === 'active' ? 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-300' : 
+              currentEvent.status === 'closed' ? 'bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-300' : 
               'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-300'
             }`}>
-              {event.status.toUpperCase()}
+              {currentEvent.status.toUpperCase()}
             </span>
             {userBet && (
               <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                userBet.status === 'active' && event.status === 'active' ? 'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-300' :
+                userBet.status === 'active' && currentEvent.status === 'active' ? 'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-300' :
                 userBetResult === 'won' ? 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-300' :
                 userBetResult === 'lost' ? 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400' :
                 'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-300'
               }`}>
-                {userBet.status === 'active' && event.status === 'active' ? 'BETTING' : 
+                {userBet.status === 'active' && currentEvent.status === 'active' ? 'BETTING' : 
                  userBetResult === 'won' ? 'WON' : 
                  userBetResult === 'lost' ? 'LOST' : 'BETTING'}
               </span>
@@ -168,15 +205,18 @@ export const EventCard: React.FC<EventCardProps> = ({ event, isAdmin = false, us
         </div>
 
         <h3 className="text-xl font-bold mb-2 line-clamp-2 leading-tight text-gray-900 dark:text-white">
-          {event.title}
+          {currentEvent.title}
         </h3>
 
         <div className="relative mb-4">
           <div className="bg-gradient-to-r from-emerald-500 via-green-500 to-teal-500 rounded-lg p-4 text-white shadow-lg overflow-hidden flex flex-col items-center justify-center">
             <div className="text-4xl font-extrabold tracking-tight text-center">
-              {formatCurrency(event.totalPool)}
+              {formatCurrency(currentEvent.totalPool)}
             </div>
             <div className="text-sm opacity-80 mt-1">Total Pool</div>
+            <div className="text-xs opacity-70 mt-1">
+              Available: {formatCurrency(availablePool)} (85%)
+            </div>
             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -skew-x-12 animate-pulse opacity-30"></div>
             <div className="absolute top-2 right-8 w-1 h-1 bg-white rounded-full animate-ping"></div>
             <div className="absolute bottom-3 left-12 w-1 h-1 bg-white rounded-full animate-ping" style={{ animationDelay: '0.5s' }}></div>
@@ -187,30 +227,30 @@ export const EventCard: React.FC<EventCardProps> = ({ event, isAdmin = false, us
           <div className="flex items-center gap-2">
             <Clock className="w-4 h-4" />
             <span className="truncate">
-              {event.status === 'resolved' ? 'Resolved' :
+              {currentEvent.status === 'resolved' ? 'Resolved' :
                hoursLeft > 0 ? `${hoursLeft}h ${minutesLeft}m` : 
                minutesLeft > 0 ? `${minutesLeft}m left` : 'Expired'}
             </span>
           </div>
           <div className="flex items-center gap-2">
             <Users className="w-4 h-4" />
-            <span>{event.participantCount} bettors</span>
+            <span>{currentEvent.participantCount} bettors</span>
           </div>
         </div>
 
         <div className="space-y-2 mb-4">
-          {event.options.slice(0, 2).map((option) => {
-            const isWinningOption = event.winningOption === option.id;
+          {currentEvent.options.slice(0, 2).map((option) => {
+            const isWinningOption = currentEvent.winningOption === option.id;
             const isUserOption = userBet?.optionId === option.id;
             
             return (
               <div 
                 key={option.id} 
-                className={`flex items-center justify-between p-3 rounded-lg transition-colors ${
+                className={`flex items-center justify-between p-3 rounded-lg transition-all duration-300 ${
                   isWinningOption ? 'bg-green-100 dark:bg-green-900/20 border-2 border-green-300 dark:border-green-600' :
                   isUserOption ? 'bg-blue-100 dark:bg-blue-900/20 border-2 border-blue-300 dark:border-blue-600' :
                   'bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600'
-                }`}
+                } ${isUpdatingOdds ? 'ring-2 ring-blue-400 ring-opacity-50' : ''}`}
               >
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
@@ -229,20 +269,22 @@ export const EventCard: React.FC<EventCardProps> = ({ event, isAdmin = false, us
                   </div>
                 </div>
                 <div className="text-right ml-2">
-                  <div className="font-bold text-lg text-blue-600 dark:text-blue-400">
+                  <div className={`font-bold text-lg transition-all duration-300 ${
+                    isUpdatingOdds ? 'text-blue-600 dark:text-blue-400 scale-110' : 'text-blue-600 dark:text-blue-400'
+                  }`}>
                     {option.odds.toFixed(2)}x
                   </div>
                   <div className="text-xs text-gray-400 dark:text-gray-500">
-                    live returns
+                    live odds
                   </div>
                 </div>
               </div>
             );
           })}
 
-          {event.options.length > 2 && (
+          {currentEvent.options.length > 2 && (
             <div className="text-center text-xs py-1 text-gray-500 dark:text-gray-400">
-              +{event.options.length - 2} more options
+              +{currentEvent.options.length - 2} more options
             </div>
           )}
         </div>
@@ -251,13 +293,13 @@ export const EventCard: React.FC<EventCardProps> = ({ event, isAdmin = false, us
         {getResultDisplay()}
 
         <button
-          onClick={() => onBet(event)}
-          disabled={event.status !== 'active' || timeLeft <= 0}
+          onClick={() => onBet(currentEvent)}
+          disabled={currentEvent.status !== 'active' || timeLeft <= 0}
           className="w-full font-semibold py-3 px-6 rounded-xl transition-all duration-200 disabled:cursor-not-allowed shadow-lg hover:shadow-xl bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:from-gray-400 disabled:to-gray-500 text-white"
         >
-          {event.status !== 'active' ? 'Event Closed' : 
+          {currentEvent.status !== 'active' ? 'Event Closed' : 
            timeLeft <= 0 ? 'Expired' : 
-           userBet && event.status === 'active' ? 'Update Bet' : 'Place Bet'}
+           userBet && currentEvent.status === 'active' ? 'Update Bet' : 'Place Bet'}
         </button>
       </div>
     </div>
