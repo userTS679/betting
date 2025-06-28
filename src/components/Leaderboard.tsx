@@ -30,46 +30,19 @@ import {
   Shield
 } from 'lucide-react';
 import { User } from '../types';
-import { supabase } from '../lib/supabase';
-
-interface LeaderboardPlayer {
-  id: string;
-  name: string;
-  rank: number;
-  previousRank?: number;
-  totalEarnings: number;
-  currentStreak: number;
-  winRate: number;
-  totalBets: number;
-  totalWins: number;
-  totalLosses: number;
-  highestWin: number;
-  longestStreak: number;
-  memberSince: Date;
-  isVerified: boolean;
-  tier: 'Master' | 'Diamond' | 'Platinum' | 'Gold' | 'Silver' | 'Bronze';
-  achievements: string[];
-  weeklyEarnings: number;
-  monthlyEarnings: number;
-  favoriteCategories: string[];
-  recentActivity: any[];
-  profilePicture?: string;
-  isFollowing?: boolean;
-  distanceToNextRank: number;
-  nextRankEarnings: number;
-  totalPoints: number;
-}
+import { getLeaderboard, getUserRank, LeaderboardUser, getTierInfo } from '../services/leaderboard';
 
 interface LeaderboardProps {
   currentUser: User;
 }
 
 export const Leaderboard: React.FC<LeaderboardProps> = ({ currentUser }) => {
-  const [players, setPlayers] = useState<LeaderboardPlayer[]>([]);
+  const [players, setPlayers] = useState<LeaderboardUser[]>([]);
   const [loading, setLoading] = useState(true);
-  const [sortBy, setSortBy] = useState<'earnings' | 'weekly' | 'monthly' | 'winRate' | 'streak'>('earnings');
+  const [sortBy, setSortBy] = useState<'total_points' | 'weekly_earnings' | 'monthly_earnings' | 'current_streak'>('total_points');
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedPlayer, setSelectedPlayer] = useState<LeaderboardPlayer | null>(null);
+  const [selectedPlayer, setSelectedPlayer] = useState<LeaderboardUser | null>(null);
+  const [userRank, setUserRank] = useState<{ rank: number; totalUsers: number; percentile: number } | null>(null);
   const [showConfetti, setShowConfetti] = useState(false);
   const [animatingRanks, setAnimatingRanks] = useState<Set<string>>(new Set());
 
@@ -81,7 +54,12 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ currentUser }) => {
     }).format(amount);
   };
 
+  const tierInfo = getTierInfo();
+
   const getTierConfig = (tier: string) => {
+    const info = tierInfo[tier as keyof typeof tierInfo];
+    if (!info) return tierInfo.Bronze;
+
     switch (tier) {
       case 'Master':
         return {
@@ -134,8 +112,7 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ currentUser }) => {
           bgGradient: 'from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/20',
           borderColor: 'border-orange-200 dark:border-orange-600',
           textColor: 'text-orange-600 dark:text-orange-400',
-          icon: <Award className="w-4 h-4" />,
-          gradient: true
+          icon: <Award className="w-4 h-4" />
         };
       default:
         return {
@@ -155,9 +132,9 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ currentUser }) => {
     return null;
   };
 
-  const getRankChange = (player: LeaderboardPlayer) => {
-    if (!player.previousRank) return null;
-    const change = player.previousRank - player.rank;
+  const getRankChange = (player: LeaderboardUser) => {
+    // For now, we'll simulate rank changes
+    const change = Math.floor(Math.random() * 6) - 3; // Random change between -3 and +3
     if (change > 0) {
       return (
         <div className="flex items-center gap-1 text-green-600 dark:text-green-400">
@@ -180,118 +157,52 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ currentUser }) => {
     );
   };
 
-  const calculateTier = (earnings: number): LeaderboardPlayer['tier'] => {
-    if (earnings >= 2000000) return 'Master';
-    if (earnings >= 1000000) return 'Diamond';
-    if (earnings >= 500000) return 'Platinum';
-    if (earnings >= 100000) return 'Gold';
-    if (earnings >= 25000) return 'Silver';
-    return 'Bronze';
-  };
-
-  const generateMockPlayers = (): LeaderboardPlayer[] => {
-    const mockPlayers: LeaderboardPlayer[] = [];
-    const names = [
-      'Rajesh Kumar', 'Priya Sharma', 'Amit Patel', 'Sneha Gupta', 'Vikram Singh',
-      'Anita Reddy', 'Rohit Mehta', 'Kavya Nair', 'Arjun Yadav', 'Deepika Joshi',
-      'Sanjay Agarwal', 'Meera Iyer', 'Karan Malhotra', 'Ritu Bansal', 'Nikhil Jain',
-      'Pooja Verma', 'Rahul Saxena', 'Divya Kapoor', 'Suresh Pandey', 'Nisha Agarwal'
-    ];
-    
-    const categories = ['Weather', 'Cryptocurrency', 'Sports', 'Technology', 'Finance', 'Politics'];
-    const achievements = ['First Win', 'Hot Streak', 'Big Winner', 'Consistent Player', 'Risk Taker', 'Safe Player'];
-
-    for (let i = 0; i < 100; i++) {
-      const baseEarnings = Math.max(0, 2500000 - (i * 18000) + (Math.random() * 60000));
-      const totalBets = Math.floor(50 + Math.random() * 500);
-      const totalWins = Math.floor(totalBets * (0.3 + Math.random() * 0.4));
-      const totalLosses = totalBets - totalWins;
-      const winRate = totalBets > 0 ? (totalWins / totalBets) * 100 : 0;
-      const currentStreak = Math.floor(Math.random() * 15);
-      const longestStreak = Math.max(currentStreak, Math.floor(Math.random() * 25));
-      const totalPoints = Math.floor(baseEarnings / 100 + totalWins * 50 + currentStreak * 100);
-      
-      mockPlayers.push({
-        id: `player-${i + 1}`,
-        name: names[Math.floor(Math.random() * names.length)] + ` ${i + 1}`,
-        rank: i + 1,
-        previousRank: i > 0 ? i + 1 + Math.floor((Math.random() - 0.5) * 6) : undefined,
-        totalEarnings: baseEarnings,
-        totalPoints,
-        currentStreak,
-        winRate,
-        totalBets,
-        totalWins,
-        totalLosses,
-        highestWin: Math.floor(baseEarnings * 0.1 + Math.random() * baseEarnings * 0.2),
-        longestStreak,
-        memberSince: new Date(Date.now() - Math.random() * 365 * 24 * 60 * 60 * 1000),
-        isVerified: Math.random() > 0.7,
-        tier: calculateTier(baseEarnings),
-        achievements: achievements.slice(0, Math.floor(Math.random() * 4) + 1),
-        weeklyEarnings: Math.floor(baseEarnings * 0.05 + Math.random() * baseEarnings * 0.1),
-        monthlyEarnings: Math.floor(baseEarnings * 0.2 + Math.random() * baseEarnings * 0.3),
-        favoriteCategories: categories.slice(0, Math.floor(Math.random() * 3) + 1),
-        recentActivity: [],
-        isFollowing: Math.random() > 0.8,
-        distanceToNextRank: i < 99 ? Math.floor(Math.random() * 50000) : 0,
-        nextRankEarnings: i > 0 ? mockPlayers[i - 1]?.totalEarnings || baseEarnings + 50000 : baseEarnings + 50000
-      });
-    }
-
-    return mockPlayers;
-  };
-
   useEffect(() => {
     const loadLeaderboard = async () => {
       setLoading(true);
       try {
-        const mockData = generateMockPlayers();
-        setPlayers(mockData);
+        const [leaderboardData, rankData] = await Promise.all([
+          getLeaderboard(100, 0, sortBy),
+          getUserRank(currentUser.id)
+        ]);
+        
+        setPlayers(leaderboardData);
+        setUserRank(rankData);
         
         setTimeout(() => {
-          const changingRanks = new Set(mockData.slice(0, 10).map(p => p.id));
+          const changingRanks = new Set(leaderboardData.slice(0, 10).map(p => p.id));
           setAnimatingRanks(changingRanks);
           setTimeout(() => setAnimatingRanks(new Set()), 2000);
         }, 1000);
       } catch (error) {
         console.error('Failed to load leaderboard:', error);
+        setPlayers([]);
       } finally {
         setLoading(false);
       }
     };
 
     loadLeaderboard();
-  }, []);
+  }, [currentUser.id, sortBy]);
 
-  const sortedPlayers = [...players].sort((a, b) => {
-    switch (sortBy) {
-      case 'weekly': return b.weeklyEarnings - a.weeklyEarnings;
-      case 'monthly': return b.monthlyEarnings - a.monthlyEarnings;
-      case 'winRate': return b.winRate - a.winRate;
-      case 'streak': return b.currentStreak - a.currentStreak;
-      default: return b.totalPoints - a.totalPoints;
-    }
-  });
-
-  const filteredPlayers = sortedPlayers.filter(player =>
+  const filteredPlayers = players.filter(player =>
     player.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const top10Players = filteredPlayers.slice(0, 10);
   const remainingPlayers = filteredPlayers.slice(10);
 
-  const handlePlayerClick = (player: LeaderboardPlayer) => {
+  const handlePlayerClick = (player: LeaderboardUser) => {
     setSelectedPlayer(player);
-    if (player.rank <= 3) {
+    if (player.rank_position <= 3) {
       setShowConfetti(true);
       setTimeout(() => setShowConfetti(false), 3000);
     }
   };
 
   // Top 10 Player Card Component
-  const TopPlayerCard: React.FC<{ player: LeaderboardPlayer; index: number }> = ({ player, index }) => {
-    const isTop3 = player.rank <= 3;
+  const TopPlayerCard: React.FC<{ player: LeaderboardUser; index: number }> = ({ player, index }) => {
+    const isTop3 = player.rank_position <= 3;
     const isAnimating = animatingRanks.has(player.id);
     const tierConfig = getTierConfig(player.tier);
     
@@ -337,7 +248,7 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ currentUser }) => {
                     : `bg-slate-100 dark:bg-slate-700 ${tierConfig.textColor}`
                   }
                 `}>
-                  {getRankIcon(player.rank) || player.rank}
+                  {getRankIcon(player.rank_position) || player.rank_position}
                   {isTop3 && (
                     <div className="absolute -top-1 -right-1">
                       <div className="w-4 h-4 bg-yellow-400 rounded-full animate-ping"></div>
@@ -355,7 +266,7 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ currentUser }) => {
                   {tierConfig.icon}
                   {player.tier}
                 </div>
-                {player.isVerified && (
+                {player.is_verified && (
                   <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center">
                     <Star className="w-3 h-3 text-white" />
                   </div>
@@ -369,7 +280,7 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ currentUser }) => {
                 <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-xl shadow-lg">
                   {player.name.split(' ').map(n => n[0]).join('')}
                 </div>
-                {player.currentStreak > 0 && (
+                {player.current_streak > 0 && (
                   <div className="absolute -top-1 -right-1 w-6 h-6 bg-orange-500 rounded-full flex items-center justify-center">
                     <Flame className="w-3 h-3 text-white" />
                   </div>
@@ -379,18 +290,15 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ currentUser }) => {
               <div className="flex-1">
                 <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
                   {player.name}
-                  {player.isFollowing && (
-                    <UserPlus className="w-4 h-4 text-blue-500" />
-                  )}
                 </h3>
                 <div className="flex items-center gap-4 text-sm text-slate-600 dark:text-slate-400">
                   <span className="flex items-center gap-1">
                     <Calendar className="w-3 h-3" />
-                    Member since {player.memberSince.getFullYear()}
+                    Member since {new Date(player.created_at).getFullYear()}
                   </span>
                   <span className="flex items-center gap-1">
                     <Target className="w-3 h-3" />
-                    {player.winRate.toFixed(1)}% win rate
+                    {player.total_bets > 0 ? ((player.total_winnings / (player.total_bets * 1000)) * 100).toFixed(1) : 0}% win rate
                   </span>
                 </div>
               </div>
@@ -399,10 +307,10 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ currentUser }) => {
             {/* Points Display */}
             <div className="mb-4">
               <div className="text-3xl font-extrabold text-slate-900 dark:text-white mb-1">
-                {player.totalPoints.toLocaleString()} pts
+                {player.total_points.toLocaleString()} pts
               </div>
               <div className="text-sm text-slate-600 dark:text-slate-400">
-                {formatCurrency(player.totalEarnings)} earned
+                {formatCurrency(player.total_winnings)} earned
               </div>
             </div>
 
@@ -410,44 +318,26 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ currentUser }) => {
             <div className="grid grid-cols-3 gap-3 mb-4">
               <div className="text-center p-3 bg-slate-50/80 dark:bg-slate-700/80 rounded-lg">
                 <div className="text-lg font-bold text-slate-900 dark:text-white">
-                  {player.currentStreak}
+                  {player.current_streak}
                 </div>
                 <div className="text-xs text-slate-600 dark:text-slate-400">Streak</div>
               </div>
               <div className="text-center p-3 bg-slate-50/80 dark:bg-slate-700/80 rounded-lg">
                 <div className="text-lg font-bold text-slate-900 dark:text-white">
-                  {player.totalWins}
+                  {player.total_bets}
                 </div>
-                <div className="text-xs text-slate-600 dark:text-slate-400">Wins</div>
+                <div className="text-xs text-slate-600 dark:text-slate-400">Bets</div>
               </div>
               <div className="text-center p-3 bg-slate-50/80 dark:bg-slate-700/80 rounded-lg">
                 <div className="text-lg font-bold text-slate-900 dark:text-white">
-                  {formatCurrency(player.highestWin)}
+                  {formatCurrency(player.weekly_earnings || 0)}
                 </div>
-                <div className="text-xs text-slate-600 dark:text-slate-400">Best Win</div>
+                <div className="text-xs text-slate-600 dark:text-slate-400">This Week</div>
               </div>
             </div>
 
-            {/* Progress to Next Rank */}
-            {player.rank > 1 && (
-              <div className="mb-4">
-                <div className="flex justify-between text-xs text-slate-600 dark:text-slate-400 mb-1">
-                  <span>Distance to Rank {player.rank - 1}</span>
-                  <span>{player.distanceToNextRank.toLocaleString()} pts</span>
-                </div>
-                <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2">
-                  <div 
-                    className="bg-gradient-to-r from-blue-500 to-purple-600 h-2 rounded-full transition-all duration-500"
-                    style={{ 
-                      width: `${Math.max(10, Math.min(90, ((player.nextRankEarnings - player.distanceToNextRank) / player.nextRankEarnings) * 100))}%` 
-                    }}
-                  ></div>
-                </div>
-              </div>
-            )}
-
             {/* Achievements */}
-            {player.achievements.length > 0 && (
+            {player.achievements && player.achievements.length > 0 && (
               <div className="flex flex-wrap gap-1">
                 {player.achievements.slice(0, 3).map((achievement, idx) => (
                   <span 
@@ -471,7 +361,7 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ currentUser }) => {
   };
 
   // Remaining Players Bar Component
-  const PlayerBar: React.FC<{ player: LeaderboardPlayer; index: number }> = ({ player, index }) => {
+  const PlayerBar: React.FC<{ player: LeaderboardUser; index: number }> = ({ player, index }) => {
     const tierConfig = getTierConfig(player.tier);
     
     return (
@@ -490,7 +380,7 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ currentUser }) => {
               w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm
               ${tierConfig.bgGradient} ${tierConfig.textColor}
             `}>
-              {player.rank}
+              {player.rank_position}
             </div>
             {getRankChange(player)}
           </div>
@@ -500,7 +390,7 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ currentUser }) => {
             <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-sm">
               {player.name.split(' ').map(n => n[0]).join('')}
             </div>
-            {player.currentStreak > 0 && (
+            {player.current_streak > 0 && (
               <div className="absolute -top-1 -right-1 w-4 h-4 bg-orange-500 rounded-full flex items-center justify-center">
                 <Flame className="w-2 h-2 text-white" />
               </div>
@@ -513,7 +403,7 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ currentUser }) => {
               <h4 className="font-semibold text-slate-900 dark:text-white truncate">
                 {player.name}
               </h4>
-              {player.isVerified && (
+              {player.is_verified && (
                 <Star className="w-3 h-3 text-blue-500" />
               )}
               <div className={`
@@ -525,17 +415,17 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ currentUser }) => {
               </div>
             </div>
             <div className="text-xs text-slate-600 dark:text-slate-400">
-              {player.winRate.toFixed(1)}% win rate • {player.currentStreak} streak
+              {player.total_bets > 0 ? ((player.total_winnings / (player.total_bets * 1000)) * 100).toFixed(1) : 0}% win rate • {player.current_streak} streak
             </div>
           </div>
 
           {/* Points */}
           <div className="text-right min-w-[120px]">
             <div className="font-bold text-slate-900 dark:text-white">
-              {player.totalPoints.toLocaleString()} pts
+              {player.total_points.toLocaleString()} pts
             </div>
             <div className="text-xs text-slate-600 dark:text-slate-400">
-              {formatCurrency(player.totalEarnings)}
+              {formatCurrency(player.total_winnings)}
             </div>
           </div>
         </div>
@@ -601,6 +491,14 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ currentUser }) => {
             <p className="text-blue-100">
               Compete with the best prediction masters and climb your way to the top!
             </p>
+            {userRank && (
+              <div className="mt-4 text-center">
+                <p className="text-blue-100">
+                  Your Rank: <span className="font-bold text-white">#{userRank.rank}</span> out of {userRank.totalUsers} players
+                  <span className="text-blue-200 ml-2">(Top {userRank.percentile}%)</span>
+                </p>
+              </div>
+            )}
           </div>
         </div>
 
@@ -626,11 +524,10 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ currentUser }) => {
                 onChange={(e) => setSortBy(e.target.value as any)}
                 className="px-4 py-3 border border-slate-300/60 dark:border-slate-600/60 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/80 dark:bg-slate-700/80 backdrop-blur-sm text-slate-900 dark:text-white"
               >
-                <option value="earnings">All-time Points</option>
-                <option value="weekly">Weekly Performance</option>
-                <option value="monthly">Monthly Performance</option>
-                <option value="winRate">Highest Win Rate</option>
-                <option value="streak">Current Streak</option>
+                <option value="total_points">All-time Points</option>
+                <option value="weekly_earnings">Weekly Performance</option>
+                <option value="monthly_earnings">Monthly Performance</option>
+                <option value="current_streak">Current Streak</option>
               </select>
             </div>
           </div>
@@ -698,7 +595,7 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ currentUser }) => {
                   <div>
                     <h2 className="text-3xl font-bold text-slate-900 dark:text-white flex items-center gap-3">
                       {selectedPlayer.name}
-                      {selectedPlayer.isVerified && (
+                      {selectedPlayer.is_verified && (
                         <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center">
                           <Star className="w-4 h-4 text-white" />
                         </div>
@@ -707,7 +604,7 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ currentUser }) => {
                     <div className="flex items-center gap-4 text-slate-600 dark:text-slate-400">
                       <span className="flex items-center gap-1">
                         <Trophy className="w-4 h-4" />
-                        Rank #{selectedPlayer.rank}
+                        Rank #{selectedPlayer.rank_position}
                       </span>
                       <span className={`
                         px-3 py-1 rounded-full text-sm font-semibold flex items-center gap-1
@@ -720,41 +617,31 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ currentUser }) => {
                   </div>
                 </div>
                 
-                <div className="flex gap-3">
-                  <button className="flex items-center gap-2 px-4 py-2 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors">
-                    <UserPlus className="w-4 h-4" />
-                    {selectedPlayer.isFollowing ? 'Following' : 'Follow'}
-                  </button>
-                  <button className="flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors">
-                    <Share2 className="w-4 h-4" />
-                    Share
-                  </button>
-                  <button 
-                    onClick={() => setSelectedPlayer(null)}
-                    className="px-4 py-2 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
-                  >
-                    ✕
-                  </button>
-                </div>
+                <button 
+                  onClick={() => setSelectedPlayer(null)}
+                  className="px-4 py-2 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+                >
+                  ✕
+                </button>
               </div>
 
               {/* Detailed Stats */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
                 <div className="bg-gradient-to-br from-green-500 to-emerald-600 text-white p-6 rounded-xl">
-                  <div className="text-3xl font-bold">{selectedPlayer.totalPoints.toLocaleString()}</div>
+                  <div className="text-3xl font-bold">{selectedPlayer.total_points.toLocaleString()}</div>
                   <div className="text-green-100">Total Points</div>
                 </div>
                 <div className="bg-gradient-to-br from-blue-500 to-cyan-600 text-white p-6 rounded-xl">
-                  <div className="text-3xl font-bold">{selectedPlayer.winRate.toFixed(1)}%</div>
-                  <div className="text-blue-100">Win Rate</div>
+                  <div className="text-3xl font-bold">{selectedPlayer.total_bets}</div>
+                  <div className="text-blue-100">Total Bets</div>
                 </div>
                 <div className="bg-gradient-to-br from-orange-500 to-red-600 text-white p-6 rounded-xl">
-                  <div className="text-3xl font-bold">{selectedPlayer.currentStreak}</div>
+                  <div className="text-3xl font-bold">{selectedPlayer.current_streak}</div>
                   <div className="text-orange-100">Current Streak</div>
                 </div>
                 <div className="bg-gradient-to-br from-purple-500 to-pink-600 text-white p-6 rounded-xl">
-                  <div className="text-3xl font-bold">{formatCurrency(selectedPlayer.highestWin)}</div>
-                  <div className="text-purple-100">Highest Win</div>
+                  <div className="text-3xl font-bold">{formatCurrency(selectedPlayer.total_winnings)}</div>
+                  <div className="text-purple-100">Total Winnings</div>
                 </div>
               </div>
 
@@ -764,73 +651,51 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ currentUser }) => {
                   <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-4">Performance Stats</h3>
                   <div className="space-y-4">
                     <div className="flex justify-between">
-                      <span className="text-slate-600 dark:text-slate-400">Total Earnings</span>
-                      <span className="font-semibold text-slate-900 dark:text-white">{formatCurrency(selectedPlayer.totalEarnings)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-600 dark:text-slate-400">Total Bets</span>
-                      <span className="font-semibold text-slate-900 dark:text-white">{selectedPlayer.totalBets}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-600 dark:text-slate-400">Wins / Losses</span>
-                      <span className="font-semibold text-slate-900 dark:text-white">
-                        {selectedPlayer.totalWins} / {selectedPlayer.totalLosses}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-600 dark:text-slate-400">Longest Streak</span>
-                      <span className="font-semibold text-slate-900 dark:text-white">{selectedPlayer.longestStreak}</span>
-                    </div>
-                    <div className="flex justify-between">
                       <span className="text-slate-600 dark:text-slate-400">Weekly Earnings</span>
                       <span className="font-semibold text-green-600 dark:text-green-400">
-                        {formatCurrency(selectedPlayer.weeklyEarnings)}
+                        {formatCurrency(selectedPlayer.weekly_earnings || 0)}
                       </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-slate-600 dark:text-slate-400">Monthly Earnings</span>
                       <span className="font-semibold text-green-600 dark:text-green-400">
-                        {formatCurrency(selectedPlayer.monthlyEarnings)}
+                        {formatCurrency(selectedPlayer.monthly_earnings || 0)}
                       </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-600 dark:text-slate-400">Longest Streak</span>
+                      <span className="font-semibold text-slate-900 dark:text-white">{selectedPlayer.longest_streak}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-600 dark:text-slate-400">Current Balance</span>
+                      <span className="font-semibold text-slate-900 dark:text-white">{formatCurrency(selectedPlayer.balance)}</span>
                     </div>
                   </div>
                 </div>
 
                 <div>
-                  <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-4">Achievements & Categories</h3>
+                  <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-4">Achievements & Info</h3>
                   <div className="space-y-4">
-                    <div>
-                      <h4 className="font-semibold text-slate-700 dark:text-slate-300 mb-2">Achievements</h4>
-                      <div className="flex flex-wrap gap-2">
-                        {selectedPlayer.achievements.map((achievement, idx) => (
-                          <span 
-                            key={idx}
-                            className="px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-sm rounded-full"
-                          >
-                            {achievement}
-                          </span>
-                        ))}
+                    {selectedPlayer.achievements && selectedPlayer.achievements.length > 0 && (
+                      <div>
+                        <h4 className="font-semibold text-slate-700 dark:text-slate-300 mb-2">Achievements</h4>
+                        <div className="flex flex-wrap gap-2">
+                          {selectedPlayer.achievements.map((achievement, idx) => (
+                            <span 
+                              key={idx}
+                              className="px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-sm rounded-full"
+                            >
+                              {achievement}
+                            </span>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                    
-                    <div>
-                      <h4 className="font-semibold text-slate-700 dark:text-slate-300 mb-2">Favorite Categories</h4>
-                      <div className="flex flex-wrap gap-2">
-                        {selectedPlayer.favoriteCategories.map((category, idx) => (
-                          <span 
-                            key={idx}
-                            className="px-3 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 text-sm rounded-full"
-                          >
-                            {category}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
+                    )}
 
                     <div>
                       <h4 className="font-semibold text-slate-700 dark:text-slate-300 mb-2">Member Since</h4>
                       <p className="text-slate-600 dark:text-slate-400">
-                        {selectedPlayer.memberSince.toLocaleDateString('en-US', { 
+                        {new Date(selectedPlayer.created_at).toLocaleDateString('en-US', { 
                           year: 'numeric', 
                           month: 'long', 
                           day: 'numeric' 
