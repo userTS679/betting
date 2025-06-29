@@ -14,10 +14,12 @@ import { CompletedEventsSection } from './components/CompletedEventsSection';
 import { Leaderboard } from './components/Leaderboard';
 import { ThemeToggle } from './components/ThemeToggle';
 import { ThemeProvider } from './contexts/ThemeContext';
+import { MobileApp } from './components/mobile/MobileApp';
 import { getCurrentUser, onAuthStateChange, signOut, getUserProfile, createUserProfile } from './services/auth';
 import { fetchEvents, createEvent } from './services/events';
 import { placeBet } from './services/betting';
 import { supabase } from './lib/supabase';
+import { registerServiceWorker, requestNotificationPermission } from './utils/pwa';
 
 // For smooth tab transitions
 import { CSSTransition, SwitchTransition } from 'react-transition-group';
@@ -38,6 +40,7 @@ function AppContent() {
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [sortBy, setSortBy] = useState<'newest' | 'popular' | 'ending'>('newest');
   const [currentView, setCurrentView] = useState<'events' | 'payments' | 'leaderboard' | 'admin'>('events');
+  const [isMobile, setIsMobile] = useState(false);
 
   // Tabs for events
   const [eventsTab, setEventsTab] = useState<'active' | 'completed'>('active');
@@ -61,6 +64,34 @@ function AppContent() {
   });
 
   const categories = ['All', 'Weather', 'Cryptocurrency', 'Sports', 'Technology', 'Finance', 'Politics', 'Entertainment'];
+
+  // Detect mobile device
+  useEffect(() => {
+    const checkMobile = () => {
+      const isMobileDevice = window.innerWidth <= 768 || 
+                           /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      setIsMobile(isMobileDevice);
+    };
+
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // Initialize PWA features
+  useEffect(() => {
+    const initPWA = async () => {
+      // Register service worker
+      const registration = await registerServiceWorker();
+      
+      if (registration) {
+        // Request notification permission
+        await requestNotificationPermission();
+      }
+    };
+
+    initPWA();
+  }, []);
 
   // Save shown wins to localStorage whenever it changes
   useEffect(() => {
@@ -490,6 +521,27 @@ function AppContent() {
           <p className="text-slate-600 dark:text-slate-300">Loading user profile...</p>
         </div>
       </div>
+    );
+  }
+
+  // Render mobile app if on mobile device
+  if (isMobile) {
+    return (
+      <MobileApp
+        currentUser={currentUser}
+        events={events}
+        userBets={userBets}
+        userBetsByEvent={userBetsByEvent}
+        transactions={transactions}
+        paymentMethods={paymentMethods}
+        onSignOut={handleSignOut}
+        onPlaceBet={handlePlaceBet}
+        onCreateEvent={handleCreateEvent}
+        onAddMoney={handleAddMoney}
+        onWithdraw={handleWithdraw}
+        onRefreshEvents={loadEvents}
+        formatCurrency={formatCurrency}
+      />
     );
   }
 
