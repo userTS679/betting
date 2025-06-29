@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Trophy, 
   Crown, 
@@ -7,22 +7,52 @@ import {
   TrendingUp,
   Users,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Flame,
+  Award,
+  Loader
 } from 'lucide-react';
+import { getLeaderboard, getUserRank, LeaderboardUser } from '../../services/leaderboard';
 
 interface ResponsiveLeaderboardProps {
-  players: any[];
   currentUser: any;
   formatCurrency: (amount: number) => string;
 }
 
 export const ResponsiveLeaderboard: React.FC<ResponsiveLeaderboardProps> = ({
-  players,
   currentUser,
   formatCurrency
 }) => {
+  const [players, setPlayers] = useState<LeaderboardUser[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [expandedPlayer, setExpandedPlayer] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'compact' | 'detailed'>('compact');
+  const [userRank, setUserRank] = useState<{ rank: number; totalUsers: number; percentile: number } | null>(null);
+
+  useEffect(() => {
+    const loadLeaderboard = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const [leaderboardData, rankData] = await Promise.all([
+          getLeaderboard(100, 0, 'total_points'),
+          getUserRank(currentUser.id)
+        ]);
+        
+        setPlayers(leaderboardData);
+        setUserRank(rankData);
+      } catch (error) {
+        console.error('Failed to load leaderboard:', error);
+        setError('Failed to load leaderboard. Please try again.');
+        setPlayers([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadLeaderboard();
+  }, [currentUser.id]);
 
   const getRankIcon = (rank: number) => {
     if (rank === 1) return <Crown className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-500" />;
@@ -66,17 +96,22 @@ export const ResponsiveLeaderboard: React.FC<ResponsiveLeaderboardProps> = ({
       </div>
       
       {/* User's rank display */}
-      <div className="bg-white/10 rounded-lg p-3 backdrop-blur-sm">
-        <div className="flex items-center justify-between">
-          <span className="text-sm font-medium">Your Rank:</span>
-          <span className="text-lg font-bold">#{currentUser.rankPosition || 'Unranked'}</span>
+      {userRank && (
+        <div className="bg-white/10 rounded-lg p-3 backdrop-blur-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium">Your Rank:</span>
+            <span className="text-lg font-bold">#{userRank.rank}</span>
+          </div>
+          <div className="text-xs opacity-80 mt-1">
+            Top {userRank.percentile}% of {userRank.totalUsers} players
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 
   // Compact player card for mobile
-  const CompactPlayerCard = ({ player, index }: { player: any; index: number }) => (
+  const CompactPlayerCard = ({ player, index }: { player: LeaderboardUser; index: number }) => (
     <div 
       className={`flex items-center gap-3 p-3 sm:p-4 border-b border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors cursor-pointer touch-manipulation ${
         player.id === currentUser.id ? 'bg-blue-50 dark:bg-blue-900/20' : ''
@@ -138,112 +173,81 @@ export const ResponsiveLeaderboard: React.FC<ResponsiveLeaderboardProps> = ({
     </div>
   );
 
-  // Detailed player card
-  const DetailedPlayerCard = ({ player, index }: { player: any; index: number }) => (
-    <div className={`p-4 sm:p-6 border border-slate-200 dark:border-slate-700 rounded-xl mb-3 sm:mb-4 ${
-      player.id === currentUser.id ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-600' : 'bg-white dark:bg-slate-800'
-    }`}>
-      {/* Header */}
-      <div className="flex items-center gap-3 sm:gap-4 mb-3 sm:mb-4">
-        <div className="flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12">
-          {getRankIcon(player.rank_position) || (
-            <div className={`w-full h-full rounded-full flex items-center justify-center font-bold text-sm sm:text-base bg-gradient-to-r ${getTierColor(player.tier)} text-white`}>
-              {player.rank_position}
-            </div>
-          )}
-        </div>
-
-        <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-sm sm:text-lg relative">
-          {player.name.split(' ').map((n: string) => n[0]).join('')}
-          {player.is_verified && (
-            <div className="absolute -top-1 -right-1 w-4 h-4 sm:w-5 sm:h-5 bg-blue-500 rounded-full flex items-center justify-center">
-              <Star className="w-2 h-2 sm:w-3 sm:h-3 text-white" />
-            </div>
-          )}
-        </div>
-
-        <div className="flex-1">
-          <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
-            {player.name}
-          </h3>
-          <div className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-gradient-to-r ${getTierColor(player.tier)} text-white`}>
-            {player.tier} Tier
+  if (loading) {
+    return (
+      <div className="bg-white dark:bg-slate-800 rounded-xl sm:rounded-2xl shadow-lg overflow-hidden max-w-full">
+        <LeaderboardHeader />
+        <div className="flex items-center justify-center py-12">
+          <div className="text-center">
+            <Loader className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-4" />
+            <p className="text-slate-600 dark:text-slate-400">Loading leaderboard...</p>
           </div>
         </div>
       </div>
+    );
+  }
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-        <div className="text-center p-2 sm:p-3 bg-slate-50 dark:bg-slate-700 rounded-lg">
-          <div className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white">
-            {player.total_points.toLocaleString()}
+  if (error) {
+    return (
+      <div className="bg-white dark:bg-slate-800 rounded-xl sm:rounded-2xl shadow-lg overflow-hidden max-w-full">
+        <LeaderboardHeader />
+        <div className="flex items-center justify-center py-12">
+          <div className="text-center">
+            <div className="text-red-500 text-4xl mb-4">⚠️</div>
+            <p className="text-slate-600 dark:text-slate-400 mb-4">{error}</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Retry
+            </button>
           </div>
-          <div className="text-xs text-slate-600 dark:text-slate-400">Points</div>
-        </div>
-        
-        <div className="text-center p-2 sm:p-3 bg-slate-50 dark:bg-slate-700 rounded-lg">
-          <div className="text-lg sm:text-xl font-bold text-green-600 dark:text-green-400">
-            {formatCurrency(player.total_winnings)}
-          </div>
-          <div className="text-xs text-slate-600 dark:text-slate-400">Winnings</div>
-        </div>
-        
-        <div className="text-center p-2 sm:p-3 bg-slate-50 dark:bg-slate-700 rounded-lg">
-          <div className="text-lg sm:text-xl font-bold text-orange-600 dark:text-orange-400">
-            {player.current_streak}
-          </div>
-          <div className="text-xs text-slate-600 dark:text-slate-400">Streak</div>
-        </div>
-        
-        <div className="text-center p-2 sm:p-3 bg-slate-50 dark:bg-slate-700 rounded-lg">
-          <div className="text-lg sm:text-xl font-bold text-blue-600 dark:text-blue-400">
-            {player.total_bets}
-          </div>
-          <div className="text-xs text-slate-600 dark:text-slate-400">Bets</div>
         </div>
       </div>
-    </div>
-  );
+    );
+  }
 
   return (
     <div className="bg-white dark:bg-slate-800 rounded-xl sm:rounded-2xl shadow-lg overflow-hidden max-w-full">
       <LeaderboardHeader />
       
       <div className="max-h-[60vh] sm:max-h-[70vh] overflow-y-auto">
-        {viewMode === 'compact' ? (
-          <div>
-            {players.slice(0, 50).map((player, index) => (
-              <div key={player.id}>
-                <CompactPlayerCard player={player} index={index} />
-                {expandedPlayer === player.id && (
-                  <div className="px-4 pb-4 bg-slate-50 dark:bg-slate-700/50">
-                    <div className="grid grid-cols-2 gap-3 p-3 bg-white dark:bg-slate-800 rounded-lg">
-                      <div className="text-center">
-                        <div className="text-lg font-bold text-green-600 dark:text-green-400">
-                          {formatCurrency(player.weekly_earnings || 0)}
-                        </div>
-                        <div className="text-xs text-slate-600 dark:text-slate-400">This Week</div>
+        <div>
+          {players.slice(0, 50).map((player, index) => (
+            <div key={player.id}>
+              <CompactPlayerCard player={player} index={index} />
+              {expandedPlayer === player.id && (
+                <div className="px-4 pb-4 bg-slate-50 dark:bg-slate-700/50">
+                  <div className="grid grid-cols-2 gap-3 p-3 bg-white dark:bg-slate-800 rounded-lg">
+                    <div className="text-center">
+                      <div className="text-lg font-bold text-green-600 dark:text-green-400">
+                        {formatCurrency(player.weekly_earnings || 0)}
                       </div>
-                      <div className="text-center">
-                        <div className="text-lg font-bold text-purple-600 dark:text-purple-400">
-                          {player.longest_streak}
-                        </div>
-                        <div className="text-xs text-slate-600 dark:text-slate-400">Best Streak</div>
+                      <div className="text-xs text-slate-600 dark:text-slate-400">This Week</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-lg font-bold text-purple-600 dark:text-purple-400">
+                        {player.longest_streak}
                       </div>
+                      <div className="text-xs text-slate-600 dark:text-slate-400">Best Streak</div>
                     </div>
                   </div>
-                )}
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="p-4 sm:p-6">
-            {players.slice(0, 20).map((player, index) => (
-              <DetailedPlayerCard key={player.id} player={player} index={index} />
-            ))}
-          </div>
-        )}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
       </div>
+
+      {players.length === 0 && !loading && (
+        <div className="text-center py-12">
+          <div className="text-slate-400 dark:text-slate-500 text-6xl mb-4">🏆</div>
+          <h3 className="text-xl font-semibold text-slate-900 dark:text-white mb-2">No players found</h3>
+          <p className="text-slate-600 dark:text-slate-400">
+            Be the first to join the leaderboard!
+          </p>
+        </div>
+      )}
     </div>
   );
 };

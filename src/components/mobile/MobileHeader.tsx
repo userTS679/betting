@@ -6,22 +6,29 @@ import {
   Wifi, 
   WifiOff,
   Download,
-  X
+  X,
+  Menu,
+  Sun,
+  Moon
 } from 'lucide-react';
 import { usePWA } from '../../hooks/usePWA';
+import { useTheme } from '../../contexts/ThemeContext';
 
 interface MobileHeaderProps {
   currentUser: any;
   onSignOut: () => void;
+  onMenuToggle: () => void;
   formatCurrency: (amount: number) => string;
 }
 
 export const MobileHeader: React.FC<MobileHeaderProps> = ({
   currentUser,
   onSignOut,
+  onMenuToggle,
   formatCurrency
 }) => {
   const { isOffline, isInstallable, installApp, showInstallPrompt, dismissInstallPrompt } = usePWA();
+  const { isDarkMode, toggleTheme } = useTheme();
 
   return (
     <>
@@ -72,6 +79,14 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({
               <span className="text-xs">{isOffline ? 'Offline' : 'Online'}</span>
             </div>
             
+            {/* Theme Toggle */}
+            <button
+              onClick={toggleTheme}
+              className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+            >
+              {isDarkMode ? <Sun className="w-4 h-4 text-slate-600 dark:text-slate-400" /> : <Moon className="w-4 h-4 text-slate-600 dark:text-slate-400" />}
+            </button>
+            
             {/* Notifications */}
             <button className="relative p-1">
               <Bell className="w-4 h-4 text-slate-600 dark:text-slate-400" />
@@ -83,9 +98,12 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({
         {/* Main Header Content */}
         <div className="flex items-center justify-between px-4 py-3">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-sm">
-              {currentUser.name.split(' ').map((n: string) => n[0]).join('')}
-            </div>
+            <button
+              onClick={onMenuToggle}
+              className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors touch-manipulation"
+            >
+              <Menu className="w-5 h-5 text-slate-600 dark:text-slate-400" />
+            </button>
             <div>
               <p className="text-sm font-medium text-slate-900 dark:text-white">
                 Welcome back, {currentUser.name.split(' ')[0]}
@@ -108,7 +126,7 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({
             {/* Settings */}
             <button
               onClick={onSignOut}
-              className="p-2 bg-slate-100 dark:bg-slate-800 rounded-lg"
+              className="p-2 bg-slate-100 dark:bg-slate-800 rounded-lg touch-manipulation"
             >
               <Settings className="w-4 h-4 text-slate-600 dark:text-slate-400" />
             </button>

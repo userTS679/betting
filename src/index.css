@@ -83,11 +83,11 @@
   
   /* Mobile-optimized spacing */
   .mobile-spacing {
-    @apply p-4 sm:p-6 lg:p-8;
+    @apply p-3 sm:p-4 lg:p-6;
   }
   
   .mobile-gap {
-    @apply gap-3 sm:gap-4 lg:gap-6;
+    @apply gap-2 sm:gap-3 lg:gap-4;
   }
   
   /* Responsive text sizing */
@@ -206,33 +206,33 @@
   
   /* Responsive padding utilities */
   .p-responsive {
-    @apply p-4 sm:p-6 lg:p-8;
+    @apply p-3 sm:p-4 lg:p-6;
   }
   
   .px-responsive {
-    @apply px-4 sm:px-6 lg:px-8;
+    @apply px-3 sm:px-4 lg:px-6;
   }
   
   .py-responsive {
-    @apply py-4 sm:py-6 lg:py-8;
+    @apply py-3 sm:py-4 lg:py-6;
   }
   
   /* Responsive margin utilities */
   .m-responsive {
-    @apply m-4 sm:m-6 lg:m-8;
+    @apply m-3 sm:m-4 lg:m-6;
   }
   
   .mx-responsive {
-    @apply mx-4 sm:mx-6 lg:mx-8;
+    @apply mx-3 sm:mx-4 lg:mx-6;
   }
   
   .my-responsive {
-    @apply my-4 sm:my-6 lg:my-8;
+    @apply my-3 sm:my-4 lg:my-6;
   }
   
   /* Responsive gap utilities */
   .gap-responsive {
-    @apply gap-3 sm:gap-4 lg:gap-6;
+    @apply gap-2 sm:gap-3 lg:gap-4;
   }
   
   /* Responsive border radius */
@@ -371,5 +371,21 @@
   
   .desktop-button {
     @apply py-4 px-6 text-lg;
+  }
+}
+
+/* Android WebView optimizations */
+@media screen and (-webkit-min-device-pixel-ratio: 0) {
+  select,
+  textarea,
+  input {
+    font-size: 16px !important;
+  }
+}
+
+/* iOS Safari optimizations */
+@supports (-webkit-touch-callout: none) {
+  .ios-safe-area {
+    padding-bottom: env(safe-area-inset-bottom);
   }
 }

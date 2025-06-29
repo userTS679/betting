@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { MobileNavigation } from './MobileNavigation';
 import { MobileHeader } from './MobileHeader';
-import { OptimizedEventCard } from './MobileOptimizedCard';
+import { OptimizedEventCard } from './OptimizedEventCard';
 import { ResponsiveLeaderboard } from './ResponsiveLeaderboard';
 import { ResponsiveDashboard } from './ResponsiveDashboard';
 import { MobileProfile } from './MobileProfile';
@@ -13,7 +13,7 @@ import { PaymentManagement } from '../PaymentManagement';
 import { AdminDashboard } from '../admin/AdminDashboard';
 import { usePullToRefresh } from '../../hooks/usePullToRefresh';
 import { useSwipeGestures } from '../../hooks/useSwipeGestures';
-import { Search, Filter, Plus, Grid, List, Menu } from 'lucide-react';
+import { Search, Filter, Plus, Grid, List } from 'lucide-react';
 
 interface MobileAppProps {
   currentUser: any;
@@ -70,7 +70,7 @@ export const MobileApp: React.FC<MobileAppProps> = ({
   // Swipe gestures for navigation
   useSwipeGestures({
     onSwipeLeft: () => {
-      const views = ['dashboard', 'events', 'leaderboard', 'payments', 'profile'];
+      const views = ['dashboard', 'events', 'leaderboard', 'profile'];
       const currentIndex = views.indexOf(currentView);
       if (currentIndex < views.length - 1) {
         setCurrentView(views[currentIndex + 1]);
@@ -78,7 +78,7 @@ export const MobileApp: React.FC<MobileAppProps> = ({
     },
     onSwipeRight: () => {
       if (!showSideDrawer) {
-        const views = ['dashboard', 'events', 'leaderboard', 'payments', 'profile'];
+        const views = ['dashboard', 'events', 'leaderboard', 'profile'];
         const currentIndex = views.indexOf(currentView);
         if (currentIndex > 0) {
           setCurrentView(views[currentIndex - 1]);
@@ -223,7 +223,6 @@ export const MobileApp: React.FC<MobileAppProps> = ({
         return (
           <div className="p-4 pb-20">
             <ResponsiveLeaderboard
-              players={[]} // This would be populated from props
               currentUser={currentUser}
               formatCurrency={formatCurrency}
             />
@@ -244,7 +243,7 @@ export const MobileApp: React.FC<MobileAppProps> = ({
 
       case 'profile':
         return (
-          <div className="px-4">
+          <div className="px-4 pb-20">
             <MobileProfile
               user={currentUser}
               userBets={userBets}
@@ -282,31 +281,13 @@ export const MobileApp: React.FC<MobileAppProps> = ({
         />
       )}
 
-      {/* Header with Hamburger Menu */}
-      <div className="sticky top-0 bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm border-b border-slate-200 dark:border-slate-700 z-40 safe-area-pt">
-        <div className="flex items-center justify-between px-4 py-3">
-          <button
-            onClick={() => setShowSideDrawer(true)}
-            className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors touch-manipulation"
-          >
-            <Menu className="w-5 h-5 text-slate-600 dark:text-slate-400" />
-          </button>
-
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-sm">P</span>
-            </div>
-            <span className="font-bold text-slate-900 dark:text-white">PredictBet</span>
-          </div>
-
-          <div className="text-right">
-            <div className="text-sm font-bold text-slate-900 dark:text-white">
-              {formatCurrency(currentUser.balance)}
-            </div>
-            <div className="text-xs text-slate-600 dark:text-slate-400">Balance</div>
-          </div>
-        </div>
-      </div>
+      {/* Header */}
+      <MobileHeader
+        currentUser={currentUser}
+        onSignOut={onSignOut}
+        onMenuToggle={() => setShowSideDrawer(true)}
+        formatCurrency={formatCurrency}
+      />
 
       {/* Main Content */}
       <main className="relative">

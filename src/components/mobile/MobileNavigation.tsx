@@ -2,7 +2,6 @@ import React from 'react';
 import { 
   Home, 
   TrendingUp, 
-  Wallet, 
   User, 
   Shield,
   Trophy,
@@ -24,7 +23,6 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
     { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
     { id: 'events', label: 'Events', icon: Home },
     { id: 'leaderboard', label: 'Rankings', icon: Trophy },
-    { id: 'payments', label: 'Wallet', icon: Wallet },
     { id: 'profile', label: 'Profile', icon: User },
     ...(isAdmin ? [{ id: 'admin', label: 'Admin', icon: Shield }] : [])
   ];
