@@ -43,7 +43,7 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
             <button
               key={item.id}
               onClick={() => onViewChange(item.id)}
-              className={`flex flex-col items-center justify-center p-2 rounded-xl transition-all duration-200 min-w-0 flex-1 min-h-[44px] touch-manipulation ${
+              className={`flex flex-col items-center justify-center p-2 rounded-xl transition-all duration-200 min-w-0 flex-1 min-h-[44px] touch-manipulation relative ${
                 isActive
                   ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 scale-105'
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/50'

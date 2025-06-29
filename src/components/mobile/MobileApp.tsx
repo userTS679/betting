@@ -1,17 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { MobileNavigation } from './MobileNavigation';
 import { MobileHeader } from './MobileHeader';
-import { ResponsiveEventCard } from './ResponsiveCard';
+import { OptimizedEventCard } from './MobileOptimizedCard';
 import { ResponsiveLeaderboard } from './ResponsiveLeaderboard';
 import { ResponsiveDashboard } from './ResponsiveDashboard';
 import { MobileProfile } from './MobileProfile';
 import { PullToRefresh } from './PullToRefresh';
+import { QuickActions } from './QuickActions';
+import { SideDrawer } from './SideDrawer';
 import { BettingModal } from '../BettingModal';
 import { PaymentManagement } from '../PaymentManagement';
 import { AdminDashboard } from '../admin/AdminDashboard';
 import { usePullToRefresh } from '../../hooks/usePullToRefresh';
 import { useSwipeGestures } from '../../hooks/useSwipeGestures';
-import { Search, Filter, Plus, Grid, List } from 'lucide-react';
+import { Search, Filter, Plus, Grid, List, Menu } from 'lucide-react';
 
 interface MobileAppProps {
   currentUser: any;
@@ -50,6 +52,9 @@ export const MobileApp: React.FC<MobileAppProps> = ({
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [showSideDrawer, setShowSideDrawer] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
 
   const categories = ['All', 'Weather', 'Cryptocurrency', 'Sports', 'Technology', 'Finance', 'Politics', 'Entertainment'];
 
@@ -72,10 +77,14 @@ export const MobileApp: React.FC<MobileAppProps> = ({
       }
     },
     onSwipeRight: () => {
-      const views = ['dashboard', 'events', 'leaderboard', 'payments', 'profile'];
-      const currentIndex = views.indexOf(currentView);
-      if (currentIndex > 0) {
-        setCurrentView(views[currentIndex - 1]);
+      if (!showSideDrawer) {
+        const views = ['dashboard', 'events', 'leaderboard', 'payments', 'profile'];
+        const currentIndex = views.indexOf(currentView);
+        if (currentIndex > 0) {
+          setCurrentView(views[currentIndex - 1]);
+        } else {
+          setShowSideDrawer(true);
+        }
       }
     },
     threshold: 100,
@@ -108,70 +117,85 @@ export const MobileApp: React.FC<MobileAppProps> = ({
         return (
           <div className="space-y-4 pb-20">
             {/* Mobile-Optimized Search and Filters */}
-            <div className="sticky top-0 bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm p-4 border-b border-slate-200 dark:border-slate-700 z-10">
-              <div className="space-y-3">
-                {/* Search Bar */}
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
-                  <input
-                    type="text"
-                    placeholder="Search events..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-10 pr-4 py-3 border border-slate-300 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-slate-700 text-slate-900 dark:text-white text-base"
-                  />
-                </div>
-
-                {/* Category Filter - Horizontal Scroll */}
-                <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-                  {categories.map(category => (
-                    <button
-                      key={category}
-                      onClick={() => setSelectedCategory(category)}
-                      className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors min-h-[36px] ${
-                        selectedCategory === category
-                          ? 'bg-blue-600 text-white shadow-lg'
-                          : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'
-                      }`}
-                    >
-                      {category}
-                    </button>
-                  ))}
-                </div>
-
-                {/* View Mode Toggle and Admin Create */}
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')}
-                      className="flex items-center gap-2 px-3 py-2 bg-slate-100 dark:bg-slate-700 rounded-lg text-slate-700 dark:text-slate-300"
-                    >
-                      {viewMode === 'grid' ? <List className="w-4 h-4" /> : <Grid className="w-4 h-4" />}
-                      <span className="text-sm">{viewMode === 'grid' ? 'List' : 'Grid'}</span>
-                    </button>
+            {(showSearch || showFilters) && (
+              <div className="sticky top-0 bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm p-4 border-b border-slate-200 dark:border-slate-700 z-10">
+                {showSearch && (
+                  <div className="mb-3">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
+                      <input
+                        type="text"
+                        placeholder="Search events..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="w-full pl-10 pr-4 py-3 border border-slate-300 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-slate-700 text-slate-900 dark:text-white text-base input-mobile"
+                        autoFocus
+                      />
+                    </div>
                   </div>
+                )}
 
-                  {currentUser.isAdmin && (
-                    <button
-                      onClick={() => setShowCreateModal(true)}
-                      className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-600 to-blue-600 text-white rounded-lg font-semibold min-h-[40px]"
-                    >
-                      <Plus className="w-4 h-4" />
-                      <span className="text-sm">Create</span>
-                    </button>
-                  )}
-                </div>
+                {showFilters && (
+                  <div className="space-y-3">
+                    {/* Category Filter - Horizontal Scroll */}
+                    <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                      {categories.map(category => (
+                        <button
+                          key={category}
+                          onClick={() => setSelectedCategory(category)}
+                          className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors min-h-[36px] touch-manipulation ${
+                            selectedCategory === category
+                              ? 'bg-blue-600 text-white shadow-lg'
+                              : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'
+                          }`}
+                        >
+                          {category}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* View Mode Toggle */}
+                    <div className="flex items-center justify-between">
+                      <button
+                        onClick={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')}
+                        className="flex items-center gap-2 px-3 py-2 bg-slate-100 dark:bg-slate-700 rounded-lg text-slate-700 dark:text-slate-300 touch-manipulation"
+                      >
+                        {viewMode === 'grid' ? <List className="w-4 h-4" /> : <Grid className="w-4 h-4" />}
+                        <span className="text-sm">{viewMode === 'grid' ? 'List View' : 'Grid View'}</span>
+                      </button>
+
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => setShowSearch(!showSearch)}
+                          className={`p-2 rounded-lg transition-colors touch-manipulation ${
+                            showSearch ? 'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400' : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400'
+                          }`}
+                        >
+                          <Search className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => setShowFilters(!showFilters)}
+                          className={`p-2 rounded-lg transition-colors touch-manipulation ${
+                            showFilters ? 'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400' : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400'
+                          }`}
+                        >
+                          <Filter className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
-            </div>
+            )}
 
             {/* Events List - Responsive Layout */}
             <div className={`px-4 ${
               viewMode === 'grid' 
-                ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4' 
+                ? 'grid grid-cols-1 sm:grid-cols-2 gap-4' 
                 : 'space-y-4'
             }`}>
               {activeEvents.map(event => (
-                <ResponsiveEventCard
+                <OptimizedEventCard
                   key={event.id}
                   event={event}
                   userBet={userBetsByEvent[event.id]}
@@ -247,7 +271,7 @@ export const MobileApp: React.FC<MobileAppProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-900 transition-colors duration-300">
+    <div className="min-h-screen-mobile bg-slate-50 dark:bg-slate-900 transition-colors duration-300">
       {/* Pull to Refresh Indicator */}
       {shouldShowIndicator && (
         <PullToRefresh
@@ -258,17 +282,58 @@ export const MobileApp: React.FC<MobileAppProps> = ({
         />
       )}
 
-      {/* Header */}
-      <MobileHeader
-        currentUser={currentUser}
-        onSignOut={onSignOut}
-        formatCurrency={formatCurrency}
-      />
+      {/* Header with Hamburger Menu */}
+      <div className="sticky top-0 bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm border-b border-slate-200 dark:border-slate-700 z-40 safe-area-pt">
+        <div className="flex items-center justify-between px-4 py-3">
+          <button
+            onClick={() => setShowSideDrawer(true)}
+            className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors touch-manipulation"
+          >
+            <Menu className="w-5 h-5 text-slate-600 dark:text-slate-400" />
+          </button>
+
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
+              <span className="text-white font-bold text-sm">P</span>
+            </div>
+            <span className="font-bold text-slate-900 dark:text-white">PredictBet</span>
+          </div>
+
+          <div className="text-right">
+            <div className="text-sm font-bold text-slate-900 dark:text-white">
+              {formatCurrency(currentUser.balance)}
+            </div>
+            <div className="text-xs text-slate-600 dark:text-slate-400">Balance</div>
+          </div>
+        </div>
+      </div>
 
       {/* Main Content */}
       <main className="relative">
         {renderContent()}
       </main>
+
+      {/* Side Drawer */}
+      <SideDrawer
+        isOpen={showSideDrawer}
+        onClose={() => setShowSideDrawer(false)}
+        currentView={currentView}
+        onViewChange={setCurrentView}
+        currentUser={currentUser}
+        onSignOut={onSignOut}
+        formatCurrency={formatCurrency}
+      />
+
+      {/* Quick Actions Floating Button */}
+      <QuickActions
+        onAddMoney={() => {}}
+        onViewRankings={() => setCurrentView('leaderboard')}
+        onOpenSettings={() => {}}
+        onSearch={() => setShowSearch(!showSearch)}
+        onFilter={() => setShowFilters(!showFilters)}
+        isAdmin={currentUser.isAdmin}
+        onCreateEvent={() => setShowCreateModal(true)}
+      />
 
       {/* Bottom Navigation */}
       <MobileNavigation
