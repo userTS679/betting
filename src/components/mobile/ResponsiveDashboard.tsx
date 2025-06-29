@@ -7,7 +7,11 @@ import {
   Wallet,
   Target,
   Award,
-  BarChart3
+  BarChart3,
+  Trophy,
+  Flame,
+  Star,
+  Zap
 } from 'lucide-react';
 
 interface ResponsiveDashboardProps {
@@ -28,6 +32,7 @@ export const ResponsiveDashboard: React.FC<ResponsiveDashboardProps> = ({
   const totalActiveBetAmount = activeBets.reduce((sum, bet) => sum + bet.amount, 0);
   const winRate = user.totalBets > 0 ? (wonBets.length / user.totalBets) * 100 : 0;
   const totalPool = events.reduce((sum, event) => sum + event.totalPool, 0);
+  const highestWin = Math.max(...wonBets.map(bet => bet.payout || 0), 0);
 
   // Mobile-first stat card component
   const StatCard = ({ 
@@ -36,7 +41,9 @@ export const ResponsiveDashboard: React.FC<ResponsiveDashboardProps> = ({
     value, 
     subtitle, 
     color = 'blue',
-    size = 'default'
+    size = 'default',
+    gradient = false,
+    badge = null
   }: {
     icon: any;
     title: string;
@@ -44,21 +51,32 @@ export const ResponsiveDashboard: React.FC<ResponsiveDashboardProps> = ({
     subtitle?: string;
     color?: string;
     size?: 'default' | 'large';
+    gradient?: boolean;
+    badge?: string | null;
   }) => {
     const colorClasses = {
-      blue: 'from-blue-500 to-blue-600',
-      green: 'from-green-500 to-green-600',
-      purple: 'from-purple-500 to-purple-600',
-      orange: 'from-orange-500 to-orange-600',
-      red: 'from-red-500 to-red-600',
-      indigo: 'from-indigo-500 to-indigo-600'
+      blue: gradient ? 'from-blue-500 to-blue-600' : 'bg-blue-500',
+      green: gradient ? 'from-green-500 to-green-600' : 'bg-green-500',
+      purple: gradient ? 'from-purple-500 to-purple-600' : 'bg-purple-500',
+      orange: gradient ? 'from-orange-500 to-orange-600' : 'bg-orange-500',
+      red: gradient ? 'from-red-500 to-red-600' : 'bg-red-500',
+      indigo: gradient ? 'from-indigo-500 to-indigo-600' : 'bg-indigo-500',
+      yellow: gradient ? 'from-yellow-400 to-orange-500' : 'bg-yellow-500'
     };
 
     return (
       <div className={`bg-white dark:bg-slate-800 rounded-xl sm:rounded-2xl shadow-lg border border-slate-200 dark:border-slate-700 overflow-hidden ${
         size === 'large' ? 'col-span-2' : ''
-      }`}>
-        <div className={`bg-gradient-to-r ${colorClasses[color as keyof typeof colorClasses]} p-3 sm:p-4`}>
+      } relative`}>
+        {badge && (
+          <div className="absolute top-2 right-2 z-10">
+            <div className="bg-yellow-400 text-yellow-900 px-2 py-1 rounded-full text-xs font-bold">
+              {badge}
+            </div>
+          </div>
+        )}
+        
+        <div className={`${gradient ? `bg-gradient-to-r ${colorClasses[color as keyof typeof colorClasses]}` : colorClasses[color as keyof typeof colorClasses]} p-3 sm:p-4`}>
           <div className="flex items-center gap-2 sm:gap-3 text-white">
             <div className="w-8 h-8 sm:w-10 sm:h-10 bg-white/20 rounded-lg flex items-center justify-center">
               <Icon className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -86,23 +104,27 @@ export const ResponsiveDashboard: React.FC<ResponsiveDashboardProps> = ({
     icon: Icon, 
     label, 
     onClick, 
-    color = 'blue' 
+    color = 'blue',
+    disabled = false
   }: {
     icon: any;
     label: string;
     onClick: () => void;
     color?: string;
+    disabled?: boolean;
   }) => {
     const colorClasses = {
       blue: 'from-blue-600 to-blue-700',
       green: 'from-green-600 to-green-700',
-      purple: 'from-purple-600 to-purple-700'
+      purple: 'from-purple-600 to-purple-700',
+      orange: 'from-orange-600 to-orange-700'
     };
 
     return (
       <button
         onClick={onClick}
-        className={`flex items-center gap-2 sm:gap-3 p-3 sm:p-4 bg-gradient-to-r ${colorClasses[color as keyof typeof colorClasses]} text-white rounded-xl font-semibold transition-all hover:scale-105 active:scale-95 shadow-lg min-h-[44px] touch-manipulation`}
+        disabled={disabled}
+        className={`flex items-center gap-2 sm:gap-3 p-3 sm:p-4 bg-gradient-to-r ${colorClasses[color as keyof typeof colorClasses]} text-white rounded-xl font-semibold transition-all hover:scale-105 active:scale-95 shadow-lg min-h-[44px] touch-manipulation disabled:opacity-50 disabled:cursor-not-allowed`}
       >
         <Icon className="w-4 h-4 sm:w-5 sm:h-5" />
         <span className="text-sm sm:text-base">{label}</span>
@@ -113,78 +135,107 @@ export const ResponsiveDashboard: React.FC<ResponsiveDashboardProps> = ({
   return (
     <div className="space-y-4 sm:space-y-6 p-4 sm:p-6 pb-20">
       {/* Welcome Section */}
-      <div className="bg-gradient-to-br from-blue-600 via-purple-600 to-indigo-700 rounded-xl sm:rounded-2xl p-4 sm:p-6 text-white">
-        <div className="flex items-center gap-3 sm:gap-4 mb-4">
-          <div className="w-12 h-12 sm:w-16 sm:h-16 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm">
-            <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-sm sm:text-base">
-              {user.name.split(' ').map((n: string) => n[0]).join('')}
-            </div>
-          </div>
-          <div className="flex-1">
-            <h1 className="text-lg sm:text-xl lg:text-2xl font-bold">
-              Welcome back, {user.name.split(' ')[0]}!
-            </h1>
-            <p className="text-blue-100 text-sm sm:text-base">
-              {user.isAdmin ? 'Admin Dashboard' : 'Your Betting Dashboard'}
-            </p>
-          </div>
+      <div className="bg-gradient-to-br from-blue-600 via-purple-600 to-indigo-700 rounded-xl sm:rounded-2xl p-4 sm:p-6 text-white relative overflow-hidden">
+        {/* Background Effects */}
+        <div className="absolute inset-0 opacity-10">
+          <div className="absolute top-4 right-4 w-24 h-24 bg-white rounded-full blur-2xl"></div>
+          <div className="absolute bottom-4 left-4 w-16 h-16 bg-yellow-300 rounded-full blur-xl"></div>
         </div>
 
-        {/* Balance Display */}
-        <div className="bg-white/10 rounded-lg p-3 sm:p-4 backdrop-blur-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-blue-100 text-sm">Available Balance</p>
-              <p className="text-2xl sm:text-3xl font-bold">{formatCurrency(user.balance)}</p>
+        <div className="relative z-10">
+          <div className="flex items-center gap-3 sm:gap-4 mb-4">
+            <div className="w-12 h-12 sm:w-16 sm:h-16 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-sm sm:text-base">
+                {user.name.split(' ').map((n: string) => n[0]).join('')}
+              </div>
             </div>
-            <Wallet className="w-6 h-6 sm:w-8 sm:h-8 text-blue-200" />
+            <div className="flex-1">
+              <h1 className="text-lg sm:text-xl lg:text-2xl font-bold">
+                Welcome back, {user.name.split(' ')[0]}! 🎯
+              </h1>
+              <p className="text-blue-100 text-sm sm:text-base">
+                {wonBets.length > 0 ? `You have ${wonBets.length} wins!` : 'Ready to start winning?'}
+              </p>
+            </div>
+          </div>
+
+          {/* Balance Display */}
+          <div className="bg-white/10 rounded-lg p-3 sm:p-4 backdrop-blur-sm">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-blue-100 text-sm">Available Balance</p>
+                <p className="text-2xl sm:text-3xl font-bold">{formatCurrency(user.balance)}</p>
+              </div>
+              <Wallet className="w-6 h-6 sm:w-8 sm:h-8 text-blue-200" />
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Stats Grid - Mobile Optimized */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+      {/* Key Metrics Grid */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <StatCard
-          icon={Activity}
-          title="Total Bets"
-          value={user.totalBets}
-          subtitle="Lifetime bets placed"
-          color="blue"
+          icon={TrendingUp}
+          title="Total Earnings"
+          value={formatCurrency(user.totalWinnings)}
+          subtitle="All-time winnings"
+          color="green"
+          gradient={true}
+          badge={wonBets.length >= 10 ? "🔥 Hot!" : undefined}
         />
         
         <StatCard
-          icon={TrendingUp}
-          title="Total Winnings"
-          value={formatCurrency(user.totalWinnings)}
-          subtitle="All-time earnings"
-          color="green"
+          icon={Trophy}
+          title="Total Wins"
+          value={wonBets.length}
+          subtitle={`${winRate.toFixed(1)}% win rate`}
+          color="yellow"
+          gradient={true}
+          badge={wonBets.length >= 5 ? "⭐ Star" : undefined}
         />
         
         <StatCard
           icon={Target}
-          title="Win Rate"
-          value={`${winRate.toFixed(1)}%`}
-          subtitle="Success percentage"
+          title="Highest Win"
+          value={highestWin > 0 ? formatCurrency(highestWin) : '₹0'}
+          subtitle="Personal best"
           color="purple"
+          gradient={true}
+          badge={highestWin >= 5000 ? "💎 Epic" : undefined}
         />
         
         <StatCard
-          icon={Users}
-          title="Active Events"
-          value={events.filter(e => e.status === 'active').length}
-          subtitle="Available to bet"
+          icon={Activity}
+          title="Active Bets"
+          value={activeBets.length}
+          subtitle={formatCurrency(totalActiveBetAmount)}
           color="orange"
-        />
-        
-        <StatCard
-          icon={DollarSign}
-          title="Total Pool"
-          value={formatCurrency(totalPool)}
-          subtitle="Platform-wide"
-          color="indigo"
-          size="large"
+          gradient={true}
         />
       </div>
+
+      {/* Motivational Section */}
+      {wonBets.length > 0 && (
+        <div className="bg-gradient-to-r from-yellow-500/20 to-orange-500/20 dark:from-yellow-900/20 dark:to-orange-900/20 rounded-xl p-4 border border-yellow-400/30 dark:border-yellow-600/30">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-yellow-500/30 rounded-full flex items-center justify-center">
+              <Flame className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
+            </div>
+            <div>
+              <h3 className="font-bold text-yellow-800 dark:text-yellow-300">
+                {wonBets.length >= 10 ? 'Master Predictor! 🏆' : 
+                 wonBets.length >= 5 ? 'You\'re on fire! 🔥' :
+                 'Great start! 🎯'}
+              </h3>
+              <p className="text-yellow-700 dark:text-yellow-400 text-sm">
+                {wonBets.length >= 10 ? 'You\'re dominating the predictions!' : 
+                 wonBets.length >= 5 ? 'Keep this winning streak going!' :
+                 'More wins are coming your way!'}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Active Bets Section */}
       {activeBets.length > 0 && (
@@ -232,7 +283,7 @@ export const ResponsiveDashboard: React.FC<ResponsiveDashboardProps> = ({
       {/* Quick Actions */}
       <div className="bg-white dark:bg-slate-800 rounded-xl sm:rounded-2xl shadow-lg border border-slate-200 dark:border-slate-700 p-4 sm:p-6">
         <div className="flex items-center gap-2 sm:gap-3 mb-4">
-          <BarChart3 className="w-5 h-5 sm:w-6 sm:h-6 text-purple-600 dark:text-purple-400" />
+          <Zap className="w-5 h-5 sm:w-6 sm:h-6 text-purple-600 dark:text-purple-400" />
           <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white">
             Quick Actions
           </h2>
@@ -240,8 +291,8 @@ export const ResponsiveDashboard: React.FC<ResponsiveDashboardProps> = ({
         
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
           <QuickActionButton
-            icon={Wallet}
-            label="Add Money"
+            icon={Target}
+            label="Place Bet"
             onClick={() => {}}
             color="green"
           />
